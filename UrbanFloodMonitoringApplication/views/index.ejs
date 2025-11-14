@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gửi ảnh và vị trí</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 20px; }
+    .row { margin-bottom: 16px; }
+    button { padding: 8px 12px; }
+    .status { margin-top: 10px; color: #333; }
+    .ok { color: #0a7; }
+    .err { color: #c00; }
+    #map { height: 420px; border: 1px solid #ccc; border-radius: 8px; }
+    .panel { margin-top: 20px; }
+    button#btnToggleTracking { font-weight: bold; }
+    .my-location-icon { background: transparent; border: none; }
+    label { cursor: pointer; user-select: none; }
+  </style>
+</head>
+<body>
+  <h1>Demo gửi ảnh và vị trí</h1>
+
+  <section class="row">
+    <h2>Gửi ảnh</h2>
+    <input type="file" id="imageInput" accept="image/*" />
+    <button id="btnSendImage">Gửi ảnh</button>
+    <div id="imgStatus" class="status"></div>
+  </section>
+
+  <section class="row">
+    <h2>Gửi vị trí</h2>
+    <button id="btnSendLocation">Gửi vị trí hiện tại</button>
+    <div id="locStatus" class="status"></div>
+  </section>
+
+  <section class="row panel">
+    <h2>Bản đồ (OpenStreetMap)</h2>
+    <div id="map"></div>
+    <div id="mapStatus" class="status"></div>
+  </section>
+
+  <section class="row">
+    <h2>Cập nhật dữ liệu đã lưu</h2>
+    <button id="btnBroadcastStored">Cập nhật dữ liệu</button>
+    <span id="storedInfo" class="status"></span>
+  </section>
+  <section class="row" id="trackingSection"> 
+    <h2>Theo dõi vị trí liên tục</h2> 
+    <button id="btnToggleTracking" style="font-weight:bold;">Bật theo dõi vị trí</button> 
+    <div id="trackStatus" class="status"></div> 
+    <div style="margin-top:10px;"> 
+      <label> 
+        <input type="checkbox" id="chkAutoSend" /> Tự động gửi vị trí lên server (mỗi 5 giây) 
+      </label> 
+    </div> 
+  </section>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  
+  <script>
+    const map = L.map('map', { zoomControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+    }).addTo(map);
+    map.setView([16.0471, 108.2062], 6);
+
+    let currentMarker = null;
+    let pathLine = L.polyline([], { color: 'blue' }).addTo(map);
+
+    function showPoint(lat, lng, timestamp, prediction) {
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const latLng = [lat, lng];
+      const text = `Thời gian: ${timestamp || '—'}<br>Dự đoán mức: ${prediction ?? '—'}`;
+      L.circle(latLng, {
+        color: 'red',
+        fillColor: '#f03',
+        fillOpacity: 0.4,
+        radius: 10
+      }).addTo(map).bindPopup(text);
+
+      if (!currentMarker) {
+        currentMarker = L.marker(latLng).addTo(map);
+      } else {
+        currentMarker.setLatLng(latLng);
+      }
+
+      pathLine.addLatLng(latLng);
+      const currentZoom = map.getZoom();
+      const targetZoom = Math.max(currentZoom, 17);
+      map.setView(latLng, targetZoom);
+    }
+  </script>
+
+  <script>
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result;
+          const idx = result.indexOf(',');
+          resolve(idx >= 0 ? result.slice(idx + 1) : result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    const btnSendImage = document.getElementById('btnSendImage');
+    const imageInput = document.getElementById('imageInput');
+    const imgStatus = document.getElementById('imgStatus');
+
+    btnSendImage.addEventListener('click', async () => {
+      imgStatus.textContent = '';
+      imgStatus.className = 'status';
+      try {
+        const file = imageInput.files && imageInput.files[0];
+        if (!file) {
+          imgStatus.textContent = 'Vui lòng chọn ảnh trước.';
+          imgStatus.classList.add('err');
+          return;
+        }
+        const base64 = await fileToBase64(file);
+        const res = await fetch('/api/send-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image_base64: base64,
+            sent_at: Date.now()
+          })
+        });
+        if (!res.ok) throw new Error('Gửi ảnh thất bại');
+        const data = await res.json();
+        if (data.ok) {
+          imgStatus.textContent = 'Đã gửi ảnh thành công.';
+          imgStatus.classList.add('ok');
+        } else {
+          throw new Error(data.error || 'Gửi ảnh thất bại');
+        }
+      } catch (e) {
+        imgStatus.textContent = 'Lỗi: ' + e.message;
+        imgStatus.classList.add('err');
+      }
+    });
+
+    const btnSendLocation = document.getElementById('btnSendLocation');
+    const locStatus = document.getElementById('locStatus');
+
+    function isSecureContextForGeo() {
+      return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
+    }
+
+    function formatTimestamp(d = new Date()) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const da = String(d.getDate()).padStart(2, '0');
+      const h = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      const s = String(d.getSeconds()).padStart(2, '0');
+      return `${y}-${m}-${da} ${h}:${mi}:${s}`;
+    }
+
+    btnSendLocation.addEventListener('click', async () => {
+      locStatus.textContent = '';
+      locStatus.className = 'status';
+      if (!isSecureContextForGeo()) {
+        locStatus.textContent = 'Cần mở bằng HTTPS hoặc localhost để lấy vị trí.';
+        locStatus.classList.add('err');
+        return;
+      }
+      if (!('geolocation' in navigator)) {
+        locStatus.textContent = 'Trình duyệt không hỗ trợ Geolocation.';
+        locStatus.classList.add('err');
+        return;
+      }
+      try {
+        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }));
+        const ts = formatTimestamp(new Date());
+        const payload = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          timestamp: ts
+        };
+        const res = await fetch('/api/send-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Gửi vị trí thất bại');
+        const data = await res.json();
+        if (data.ok) {
+          locStatus.textContent = `Đã gửi vị trí: (${payload.lat.toFixed(6)}, ${payload.lng.toFixed(6)})`;
+          locStatus.classList.add('ok');
+        } else {
+          throw new Error(data.error || 'Gửi vị trí thất bại');
+        }
+      } catch (e) {
+        locStatus.textContent = 'Lỗi: ' + e.message;
+        locStatus.classList.add('err');
+      }
+    });
+
+    // SSE vào map
+    const mapStatus = document.getElementById('mapStatus');
+    try {
+      const sse = new EventSource('/events');
+      sse.onmessage = (ev) => {
+        try {
+          const payload = JSON.parse(ev.data);
+          if (payload && Number.isFinite(payload.lat) && Number.isFinite(payload.lng)) {
+            showPoint(payload.lat, payload.lng, payload.timestamp, payload.prediction);
+            mapStatus.textContent = `Đã cập nhật vị trí: (${payload.lat.toFixed(6)}, ${payload.lng.toFixed(6)})`;
+            mapStatus.className = 'status ok';
+          }
+        } catch (e) {
+          console.error('Bad SSE JSON:', e, ev.data);
+        }
+      };
+      sse.onerror = () => {
+        mapStatus.textContent = 'Mất kết nối realtime, đang thử lại...';
+        mapStatus.className = 'status err';
+      };
+    } catch (e) {
+      mapStatus.textContent = 'Không thể mở kênh realtime.';
+      mapStatus.className = 'status err';
+    }
+
+    // Nút “Cập nhật dữ liệu”
+    const btnBroadcastStored = document.getElementById('btnBroadcastStored');
+    const storedInfo = document.getElementById('storedInfo');
+
+    async function refreshStoredCount() {
+      try {
+        const res = await fetch('/api/stored-count');
+        const data = await res.json();
+        if (data.ok) {
+          storedInfo.textContent = `Hiện có ${data.count} bản ghi trong bộ nhớ.`;
+          storedInfo.className = 'status';
+        }
+      } catch {}
+    }
+
+    // gọi lúc load trang
+    refreshStoredCount();
+
+    btnBroadcastStored.addEventListener('click', async () => {
+      btnBroadcastStored.disabled = true;
+      storedInfo.textContent = 'Đang phát dữ liệu đã lưu...';
+      storedInfo.className = 'status';
+      try {
+        const res = await fetch('/api/broadcast-stored', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ delayMs: 300 }) // có thể chỉnh 0 nếu muốn phát thật nhanh
+        });
+        const data = await res.json();
+        if (data.ok) {
+          storedInfo.textContent = `Đã phát ${data.broadcasted} bản ghi lên bản đồ.`;
+          storedInfo.className = 'status ok';
+        } else {
+          storedInfo.textContent = 'Không phát được dữ liệu.';
+          storedInfo.className = 'status err';
+        }
+      } catch (e) {
+        storedInfo.textContent = 'Lỗi khi phát dữ liệu: ' + e.message;
+        storedInfo.className = 'status err';
+      } finally {
+        btnBroadcastStored.disabled = false; // cập nhật lại số lượng sau khi phát (vẫn giữ trong bộ nhớ)
+        refreshStoredCount();
+      }
+    });
+  </script>
+  <script>
+        // === Theo dõi vị trí liên tục (watchPosition) ===
+        let watchId = null;
+        let isTracking = false;
+        let myLocationMarker = null;
+        let myLocationCircle = null;
+        const btnToggleTracking = document.getElementById('btnToggleTracking');
+        const trackStatus = document.getElementById('trackStatus');
+        const chkAutoSend = document.getElementById('chkAutoSend');
+        let lastSentTime = 0;
+        const SEND_INTERVAL = 5000; // 5 giây
+
+        function isSecureContextForGeo() {
+            return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
+        }
+
+        function formatTimestamp(d = new Date()) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const da = String(d.getDate()).padStart(2, '0');
+            const h = String(d.getHours()).padStart(2, '0');
+            const mi = String(d.getMinutes()).padStart(2, '0');
+            const s = String(d.getSeconds()).padStart(2, '0');
+            return `${y}-${m}-${da} ${h}:${mi}:${s}`;
+        }
+
+        function updateMyLocation(lat, lng, accuracy) {
+            const latLng = [lat, lng];
+            // marker xanh “vị trí của tôi”
+            if (!myLocationMarker) {
+                const myIcon = L.divIcon({ className: 'my-location-icon', html: '<div style="background-color:#007bff;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 5px rgba(0,0,0,0.5);"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
+                myLocationMarker = L.marker(latLng, { icon: myIcon }).addTo(map);
+                myLocationMarker.bindPopup('Vị trí của bạn');
+            } else {
+                myLocationMarker.setLatLng(latLng);
+            }
+            // vòng accuracy
+            if (!myLocationCircle) {
+                myLocationCircle = L.circle(latLng, { color: '#007bff', fillColor: '#007bff', fillOpacity: 0.15, radius: accuracy }).addTo(map);
+            } else {
+                myLocationCircle.setLatLng(latLng);
+                myLocationCircle.setRadius(accuracy);
+            }
+            // pan hợp lý
+            const currentZoom = map.getZoom();
+            if (currentZoom < 15) map.setView(latLng, 15);
+            else map.panTo(latLng);
+        }
+
+        async function sendLocationToServer(lat, lng) {
+            try {
+                const payload = { lat, lng, timestamp: formatTimestamp() };
+                const res = await fetch('/api/send-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!res.ok) {
+                    console.warn('Send location failed');
+                }
+            } catch (e) {
+                console.error('Lỗi gửi vị trí tự động:', e);
+            }
+        }
+
+        function startTracking() {
+            if (!isSecureContextForGeo()) {
+                trackStatus.textContent = 'Trình duyệt yêu cầu HTTPS hoặc localhost để lấy vị trí.';
+                trackStatus.className = 'status err';
+                return;
+            }
+            if (!('geolocation' in navigator)) {
+                trackStatus.textContent = 'Trình duyệt không hỗ trợ Geolocation.';
+                trackStatus.className = 'status err';
+                return;
+            }
+            watchId = navigator.geolocation.watchPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const acc = pos.coords.accuracy;
+                updateMyLocation(lat, lng, acc);
+                trackStatus.textContent = `Vị trí: (${lat.toFixed(6)}, ${lng.toFixed(6)}) - Độ chính xác: ${acc.toFixed(0)}m`;
+                trackStatus.className = 'status ok';
+                if (chkAutoSend.checked) {
+                    const now = Date.now();
+                    if (now - lastSentTime >= SEND_INTERVAL) {
+                        lastSentTime = now;
+                        await sendLocationToServer(lat, lng);
+                    }
+                }
+            }, (error) => {
+                trackStatus.textContent = `Lỗi: ${error.message}`;
+                trackStatus.className = 'status err';
+            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+            isTracking = true;
+            btnToggleTracking.textContent = 'Tắt theo dõi vị trí';
+            btnToggleTracking.style.backgroundColor = '#c00';
+            btnToggleTracking.style.color = '#fff';
+        }
+
+        function stopTracking() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            isTracking = false;
+            btnToggleTracking.textContent = 'Bật theo dõi vị trí';
+            btnToggleTracking.style.backgroundColor = '';
+            btnToggleTracking.style.color = '';
+            trackStatus.textContent = 'Đã tắt theo dõi vị trí.';
+            trackStatus.className = 'status';
+        }
+
+        btnToggleTracking?.addEventListener('click', () => {
+            if (isTracking) stopTracking();
+            else startTracking();
+        });
+
+        window.addEventListener('beforeunload', () => {
+            if (isTracking) stopTracking();
+        });
+    </script>
+</body>
+</html>
+

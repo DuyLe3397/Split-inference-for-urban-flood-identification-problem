@@ -9,6 +9,7 @@ server:
   clients:
     - 1
     - 1
+    - 1
   model: yolov8n
   batch-frame: 1
 rabbit:
@@ -26,20 +27,25 @@ This configuration is use for server.
 
 ## How to Run
 Alter your configuration, you need to run the server to listen and control the request from clients.
-### Server
+### Server, chưa cắt model, mới chạy sơ bộ sau đó liên tục lắng nghe phía client gửi tin nhắn để có cách trả lời tương ứng
 ```commandline
-python server.py
+python server.py hoặc python3 server.py
 ```
-### Client
-Now, when server is ready, run clients simultaneously with total number of client that you defined.
+### Client, chạy mới lấy thông tin từ config rồi cắt model ra, client chạy sẽ tương tác với server, client mới cho ra kết quả inference từng phần
+Now, when server is ready, run clients simultaneously with total number of client that you defined. chạy các client đồng thời
 
 **Layer 1**
 
 ```commandline
-python client.py --layer_id 1 
+python3 client.py --layer_id 1 
+
+**Layer 2**
+
+```commandline
+python client.py --layer_id 2 
 ```
 Where:
-- `--layer_id` is the ID index of client's layer, start from 1.
+- `--layer_id` is the ID index of client's layer, start from 1. la chỉ số id của layer trong máy khách
 
 If you want to use a specific device configuration for the training process, declare it with the `--device` argument when running the command line:
 ```commandline
@@ -54,6 +60,6 @@ Results include inference time, operating time, utilization. It locates in `resu
 2025-04-16 23:54:12,896 - my_logger - INFO - End Inference.
 2025-04-16 23:54:12,899 - my_logger - INFO - All time: 156.95556831359863s
 2025-04-16 23:54:12,900 - my_logger - INFO - Inference time: 152.65051984786987s
-2025-04-16 23:54:12,900 - my_logger - INFO - Utilization: 97.26 %
+2025-04-16 23:54:12,900 - my_logger - INFO - Utilization: 97.26 % (là tỉ lệ time inference/ all time)
 
 ```

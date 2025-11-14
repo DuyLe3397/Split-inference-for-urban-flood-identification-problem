@@ -1,18 +1,19 @@
 name: YOLO
 server:
-  cut-layer: a #or b, c
-  clients:
+  cut-module: b #or b, c, đây chỉ là cái cố định
+  clients: # định nghĩa 3 clident với id đều là 1
     - 1
+    - 1 
     - 1
   model: yolov8n
-  batch-frame: 1
+  batch-frame: 1 # chính là số khung hình xử lý đồng thời
 rabbit:
   address: 127.0.0.1
-  username: admin
-  password: admin
+  username: guest
+  password: guest
   virtual-host: /
 
-data: video.mp4
+data: src/img1.jpg
 log-path: .
 control-count: 10
 debug-mode: False
