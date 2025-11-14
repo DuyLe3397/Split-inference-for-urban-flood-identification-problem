@@ -80,10 +80,12 @@
         radius: 10
       }).addTo(map).bindPopup(text);
 
+       // Tạo hoặc cập nhật marker
       if (!currentMarker) {
-        currentMarker = L.marker(latLng).addTo(map);
+        currentMarker = L.marker(latLng).addTo(map).bindPopup(text); // Gán popup cho marker
       } else {
         currentMarker.setLatLng(latLng);
+        currentMarker.bindPopup(text); // Cập nhật popup cho marker
       }
 
       pathLine.addLatLng(latLng);
