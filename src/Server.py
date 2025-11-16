@@ -117,6 +117,7 @@ class Server:
                     self.Processed_predictions, location)
                 a, b, c = self.predictionAndlocation[0][1]
                 p = self.predictionAndlocation[0][0]
+                # trị số class id cộng thêm 1 là ra mức ngập
                 pred = list(map(lambda x: x + 1, p[0]))
                 print("dự đoán", pred)
                 data = {
