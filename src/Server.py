@@ -48,6 +48,7 @@ class Server:
         self.total_clients = config["server"]["clients"]
         self.cut_module = config["server"]["cut-module"]
         self.batch_frame = config["server"]["batch-frame"]
+        self.nc = config["nc"]
 
         # ds lưu mỗi phần tử là 1 mảng 2 chiều các dự đoán, mỗi dự đoán sẽ có 6 giá trị
         self.predictions = []
@@ -99,7 +100,7 @@ class Server:
         self.predictions.append(prediction)
 
     def add_processed_prediction(self, prediction):
-        self.Processed_predictions.append(prediction)
+        self.Processed_predictions.append(prediction)  # list chứa các class id
 
     def add_prediction_and_location(self, prediction, location):
         self.predictionAndlocation.append((prediction, location))
@@ -115,11 +116,11 @@ class Server:
                 self.add_prediction_and_location(
                     self.Processed_predictions, location)
                 a, b, c = self.predictionAndlocation[0][1]
-                d = [pred.tolist()
-                     for pred in self.predictionAndlocation[0][0]]
-                print("dự đoán", d[0][0][5])
+                p = self.predictionAndlocation[0][0]
+                pred = list(map(lambda x: x + 1, p[0]))
+                print("dự đoán", pred)
                 data = {
-                    'prediction': d[0][0][5],
+                    'prediction': pred,
                     'kinhdo': a,
                     'vido': b,
                     'timestamp': c
@@ -143,7 +144,12 @@ class Server:
         if not isinstance(preds, (list, tuple)) or len(preds) < 2:
             print(
                 f"- preds không phải list>=2, type={type(preds).__name__}, content={preds}")
-            self.add_processed_prediction(self.predictions[0])
+            if len(self.predictions) > 0:
+                pred = self.predictions[0]
+                class_ids = pred[:, 5].long()
+                unique_class_ids = torch.unique(class_ids).tolist()
+                # sẽ là 1 list chứa các class id
+                self.add_processed_prediction(unique_class_ids)
             ch.basic_ack(delivery_tag=method.delivery_tag)
             print("====================================")
             return
@@ -162,7 +168,7 @@ class Server:
                     agnostic=False,
                     multi_label=False,
                     max_det=300,
-                    nc=4,
+                    nc=self.nc,
                 )
             det = nms_out[0]  # lấy phần tử đầu tiên trong danh sách nms_out
             # đầu ra là tensor 2D [M, 6], M là số box còn lại sau NMS, 6 là 4 tọa độ box + conf + class
@@ -176,6 +182,7 @@ class Server:
 
             print(
                 f"- Tensor sau khi đi qua NMS: ={det.shape}, dtype={det.dtype}, device={det.device}")
+            # một lần thêm prediction chính là thêm 1 mảng có nhiều bbox dự đoán
             self.add_prediction(det)
             for i in range(det.shape[0]):
                 print(

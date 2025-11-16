@@ -1,291 +1,640 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <title>Gửi ảnh và vị trí</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <style>
-    body { font-family: system-ui, sans-serif; padding: 20px; }
-    .row { margin-bottom: 16px; }
-    button { padding: 8px 12px; }
-    .status { margin-top: 10px; color: #333; }
-    .ok { color: #0a7; }
-    .err { color: #c00; }
-    #map { height: 420px; border: 1px solid #ccc; border-radius: 8px; }
-    .panel { margin-top: 20px; }
-    button#btnToggleTracking { font-weight: bold; }
-    .my-location-icon { background: transparent; border: none; }
-    label { cursor: pointer; user-select: none; }
-  </style>
+    <meta charset="UTF-8" />
+    <title>Gửi ảnh và vị trí • Demo bản đồ ngập</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #111827;
+            --soft: #1f2937;
+            --accent: #22c55e;
+            --accent2: #3b82f6;
+            --warn: #f59e0b;
+            --danger: #ef4444;
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --card: #0b1220;
+            --border: #233044;
+            --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            color: var(--text);
+            background: radial-gradient(1200px 600px at 80% -20%, rgba(59, 130, 246, .12), transparent 60%), radial-gradient(1000px 700px at -10% 120%, rgba(34, 197, 94, .1), transparent 60%), linear-gradient(180deg, #0b1220 0%, #0b1220 100%);
+            padding: 24px;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: .3px
+        }
+
+        h2 {
+            margin: 0 0 10px;
+            font-size: 20px;
+            font-weight: 700
+        }
+
+        .sub {
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            grid-gap: 18px;
+        }
+
+        @media (max-width: 1100px) {
+            .grid {
+                grid-template-columns: 1fr
+            }
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .02), rgba(255, 255, 255, .01));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(6px);
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, .42);
+            border-color: #2b3b55
+        }
+
+        .row {
+            margin-bottom: 14px
+        }
+
+        .status {
+            margin-top: 8px;
+            color: var(--text);
+            font-size: 14px
+        }
+
+        .ok {
+            color: #34d399
+        }
+
+        .err {
+            color: #f87171
+        }
+
+        label {
+            cursor: pointer;
+            user-select: none
+        }
+
+        .btn {
+            appearance: none;
+            border: none;
+            border-radius: 10px;
+            padding: 10px 14px;
+            background: linear-gradient(180deg, #1e293b, #0f172a);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-weight: 700;
+            letter-spacing: .2px;
+            cursor: pointer;
+            transition: transform .08s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, .3);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            border-color: #2b3b55
+        }
+
+        .btn:active {
+            transform: translateY(0)
+        }
+
+        .btn.primary {
+            background: linear-gradient(180deg, #2563eb, #1d4ed8)
+        }
+
+        .btn.warn {
+            background: linear-gradient(180deg, #f59e0b, #d97706)
+        }
+
+        .btn.danger {
+            background: linear-gradient(180deg, #ef4444, #dc2626)
+        }
+
+        .btn.ghost {
+            background: transparent;
+            border-color: #2b3b55
+        }
+
+        .btn[disabled] {
+            opacity: .6;
+            cursor: not-allowed
+        }
+
+        #map {
+            height: 520px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 10px
+        }
+
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, .02);
+            cursor: pointer;
+            transition: background .2s ease, border-color .2s ease, transform .08s ease;
+            user-select: none;
+        }
+
+        .legend-item:hover {
+            background: rgba(255, 255, 255, .04);
+            border-color: #2b3b55;
+            transform: translateX(1px)
+        }
+
+        .legend-item.active {
+            outline: 2px solid #60a5fa
+        }
+
+        .legend-item .dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .25), 0 0 0 2px rgba(255, 255, 255, .05);
+        }
+
+        .dot.green {
+            background: #22c55e
+        }
+
+        .dot.yellow {
+            background: #ffcc00
+        }
+
+        .dot.red {
+            background: #ef4444
+        }
+
+        .tip {
+            color: var(--muted);
+            font-size: 13px
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px
+        }
+
+        /* Popup tùy chỉnh nhẹ */
+        .leaflet-popup-content-wrapper {
+            background: #0b1220;
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px
+        }
+
+        .leaflet-popup-tip {
+            background: #0b1220;
+            border: 1px solid var(--border)
+        }
+
+        .leaflet-container a {
+            color: #93c5fd
+        }
+
+        /* Hiệu ứng "pulse" cho vòng tròn mới */
+        .pulse-ring {
+            position: absolute;
+            pointer-events: none;
+            width: 24px;
+            height: 24px;
+            margin-left: -12px;
+            margin-top: -12px;
+            border-radius: 50%;
+            background: radial-gradient(rgba(255, 255, 255, .35), rgba(255, 255, 255, 0) 60%);
+            animation: pulse 1.2s ease-out 1;
+        }
+
+        @keyframes pulse {
+            from {
+                transform: scale(.6);
+                opacity: .9
+            }
+
+            to {
+                transform: scale(2.4);
+                opacity: 0
+            }
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 18px
+        }
+        .app-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 9999;
+          display: none;
+          align-items: center;
+          justify-content: center;
+          background: rgba(2, 6, 23, 0.66);
+          backdrop-filter: blur(3px);
+        }
+        .app-overlay.show {
+          display: flex;
+        }
+        .overlay-box {
+          min-width: 280px;
+          max-width: 90vw;
+          background: #0b1220;
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 16px 18px;
+          box-shadow: var(--shadow);
+          text-align: center;
+        }
+        .spinner {
+          width: 44px;
+          height: 44px;
+          margin: 8px auto 12px auto;
+          border: 4px solid rgba(255, 255, 255, 0.15);
+          border-top-color: #60a5fa;
+          border-radius: 50%;
+          animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .overlay-title {
+          font-weight: 800;
+          margin-bottom: 4px;
+        }
+        .overlay-sub {
+          color: var(--muted);
+          font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-  <h1>Demo gửi ảnh và vị trí</h1>
+    <div class="header">
+        <div>
+            <h1>Gửi ảnh và vị trí</h1>
+            <div class="sub">Gửi dữ liệu, xem điểm ngập theo thời gian thực, lọc hiển thị theo mức ngập.</div>
+        </div>
+        <div>
+            <button id="btnClearFilter" class="btn ghost">Xóa lọc</button>
+        </div>
+    </div>
+    <div class="grid">
+        <div class="card">
+            <div class="row">
+                <h2>Gửi ảnh</h2>
+                <div class="stack">
+                    <div>
+                        <input type="file" id="imageInput" accept="image/*" />
+                        <button id="btnSendImage" class="btn primary">Gửi ảnh</button>
+                    </div>
+                    <div id="imgStatus" class="status"></div>
+                </div>
+            </div>
+            <div class="row">
+                <h2>Gửi vị trí</h2>
+                <div class="stack">
+                    <button id="btnSendLocation" class="btn">Gửi vị trí hiện tại</button>
+                    <div id="locStatus" class="status"></div>
+                </div>
+            </div>
 
-  <section class="row">
-    <h2>Gửi ảnh</h2>
-    <input type="file" id="imageInput" accept="image/*" />
-    <button id="btnSendImage">Gửi ảnh</button>
-    <div id="imgStatus" class="status"></div>
-  </section>
+            <div class="row">
+                <h2>Cập nhật dữ liệu đã lưu</h2>
+                <div class="stack">
+                    <div>
+                        <button id="btnBroadcastStored" class="btn">Cập nhật dữ liệu</button>
+                        <span id="storedInfo" class="status" style="margin-left:8px"></span>
+                    </div>
+                </div>
+            </div>
 
-  <section class="row">
-    <h2>Gửi vị trí</h2>
-    <button id="btnSendLocation">Gửi vị trí hiện tại</button>
-    <div id="locStatus" class="status"></div>
-  </section>
+            <div class="row" id="trackingSection">
+                <h2>Theo dõi vị trí liên tục</h2>
+                <div class="stack">
+                    <button id="btnToggleTracking" class="btn warn">Bật theo dõi vị trí</button>
+                    <div>
+                        <label><input type="checkbox" id="chkAutoSend" /> Tự động gửi vị trí lên server (mỗi 5 giây)</label>
+                    </div>
+                    <div id="trackStatus" class="status"></div>
+                </div>
+            </div>
+        </div>
 
-  <section class="row panel">
-    <h2>Bản đồ (OpenStreetMap)</h2>
-    <div id="map"></div>
-    <div id="mapStatus" class="status"></div>
-  </section>
-
-  <section class="row">
-    <h2>Cập nhật dữ liệu đã lưu</h2>
-    <button id="btnBroadcastStored">Cập nhật dữ liệu</button>
-    <span id="storedInfo" class="status"></span>
-  </section>
-  <section class="row" id="trackingSection"> 
-    <h2>Theo dõi vị trí liên tục</h2> 
-    <button id="btnToggleTracking" style="font-weight:bold;">Bật theo dõi vị trí</button> 
-    <div id="trackStatus" class="status"></div> 
-    <div style="margin-top:10px;"> 
-      <label> 
-        <input type="checkbox" id="chkAutoSend" /> Tự động gửi vị trí lên server (mỗi 5 giây) 
-      </label> 
-    </div> 
-  </section>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  
-  <script>
-    const map = L.map('map', { zoomControl: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-    }).addTo(map);
-    map.setView([16.0471, 108.2062], 6);
-
-    let currentMarker = null;
-    let pathLine = L.polyline([], { color: 'blue' }).addTo(map);
-
-    function showPoint(lat, lng, timestamp, prediction) {
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      const latLng = [lat, lng];
-      const text = `Thời gian: ${timestamp}<br>Dự đoán đang ngập ở mức: ${prediction+1}`;
-      L.circle(latLng, {
-        color: 'red',
-        fillColor: '#f03',
-        fillOpacity: 0.4,
-        radius: 15
-      }).addTo(map).bindPopup(text);
-
-      if (!currentMarker) {
-        currentMarker = L.marker(latLng).addTo(map);
-      } else {
-        currentMarker.setLatLng(latLng);
-      }
-
-      pathLine.addLatLng(latLng);
-      const currentZoom = map.getZoom();
-      const targetZoom = Math.max(currentZoom, 17);
-      map.setView(latLng, targetZoom);
-    }
-  </script>
-
-  <script>
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const result = reader.result;
-          const idx = result.indexOf(',');
-          resolve(idx >= 0 ? result.slice(idx + 1) : result);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    const btnSendImage = document.getElementById('btnSendImage');
-    const imageInput = document.getElementById('imageInput');
-    const imgStatus = document.getElementById('imgStatus');
-
-    btnSendImage.addEventListener('click', async () => {
-      imgStatus.textContent = '';
-      imgStatus.className = 'status';
-      try {
-        const file = imageInput.files && imageInput.files[0];
-        if (!file) {
-          imgStatus.textContent = 'Vui lòng chọn ảnh trước.';
-          imgStatus.classList.add('err');
-          return;
-        }
-        const base64 = await fileToBase64(file);
-        const res = await fetch('/api/send-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            image_base64: base64,
-            sent_at: Date.now()
-          })
+        <div class="card">
+            <div class="panel-header">
+                <h2>Chú thích mức ngập</h2>
+            </div>
+            <div class="legend">
+                <div class="legend-item" data-range="0">
+                    <div class="dot green"></div>
+                    <div>
+                        <div><strong>Mức 0</strong> — 0 cm (không ngập)</div>
+                        <div class="tip">Hiển thị màu xanh lá</div>
+                    </div>
+                </div>
+                <div class="legend-item" data-range="1-2">
+                    <div class="dot yellow"></div>
+                    <div>
+                        <div><strong>Mức 1–2</strong> — 10–20 cm</div>
+                        <div class="tip">Hiển thị màu vàng</div>
+                    </div>
+                </div>
+                <div class="legend-item" data-range="3+">
+                    <div class="dot red"></div>
+                    <div>
+                        <div><strong>Mức 3+</strong> — trên 20 cm</div>
+                        <div class="tip">Hiển thị màu đỏ</div>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top:12px">
+                <div class="tip">Nhấn vào một dòng để lọc bản đồ theo mức; nhấn “Xóa lọc” hoặc nhấn ra ngoài bản đồ để trở lại bình thường.</div>
+            </div>
+        </div>
+    </div>
+    <div class="card" style="margin-top:18px">
+        <h2>Bản đồ (OpenStreetMap)</h2>
+        <div id="map"></div>
+        <div id="mapStatus" class="status" style="margin-top:10px"></div>
+    </div>
+    <template id="pulse-template">
+        <div class="pulse-ring"></div>
+    </template>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        // ====== Khởi tạo bản đồ ======
+        const map = L.map('map', {
+            zoomControl: true,
+            preferCanvas: true
         });
-        if (!res.ok) throw new Error('Gửi ảnh thất bại');
-        const data = await res.json();
-        if (data.ok) {
-          imgStatus.textContent = 'Đã gửi ảnh thành công.';
-          imgStatus.classList.add('ok');
-        } else {
-          throw new Error(data.error || 'Gửi ảnh thất bại');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        map.setView([16.0471, 108.2062], 6);
+        let currentMarker = null;
+        let pathLine = L.polyline([], {
+            color: '#3b82f6',
+            weight: 3,
+            opacity: .8
+        }).addTo(map);
+        // Nhóm layer để quản lý các vòng tròn ngập
+        const floodLayerGroup = L.layerGroup().addTo(map);
+        // Theo dõi tất cả vòng tròn đã thêm để lọc
+        const floodCircles = [];
+        // { circle, levelSet, maxLevel, baseColor, baseFill }
+        // ========== Bộ lọc theo chú thích ==========
+        // filterMode: 'none' | '0' | '1-2' | '3+'
+        let filterMode = 'none';
+
+        function applyFilter() {
+            floodCircles.forEach(obj => {
+                const {
+                    circle,
+                    maxLevel,
+                    baseColor,
+                    baseFill
+                } = obj;
+                // Quy tắc mapping vào nhóm
+                const bucket = maxLevel === 0 ? '0' : (maxLevel <= 2 ? '1-2' : '3+');
+                if (filterMode === 'none') {
+                    // khôi phục màu
+                    circle.setStyle({
+                        color: baseColor,
+                        fillColor: baseFill,
+                        opacity: 1,
+                        fillOpacity: .4
+                    });
+                } else if (filterMode === bucket) {
+                    circle.setStyle({
+                        color: baseColor,
+                        fillColor: baseFill,
+                        opacity: 1,
+                        fillOpacity: .5
+                    });
+                    circle.bringToFront();
+                } else {
+                    // xám mờ
+                    circle.setStyle({
+                        color: '#6b7280',
+                        fillColor: '#6b7280',
+                        opacity: .5,
+                        fillOpacity: .15
+                    });
+                }
+            });
         }
-      } catch (e) {
-        imgStatus.textContent = 'Lỗi: ' + e.message;
-        imgStatus.classList.add('err');
-      }
-    });
 
-    const btnSendLocation = document.getElementById('btnSendLocation');
-    const locStatus = document.getElementById('locStatus');
+        function setFilter(mode) {
+            filterMode = mode;
+            document.querySelectorAll('.legend-item').forEach(el => el.classList.toggle('active', el.dataset.range === mode));
+            applyFilter();
+        }
 
-    function isSecureContextForGeo() {
-      return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
-    }
+        // Click nền để bỏ lọc
+        map.on('click', () => setFilter('none'));
 
-    function formatTimestamp(d = new Date()) {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const da = String(d.getDate()).padStart(2, '0');
-      const h = String(d.getHours()).padStart(2, '0');
-      const mi = String(d.getMinutes()).padStart(2, '0');
-      const s = String(d.getSeconds()).padStart(2, '0');
-      return `${y}-${m}-${da} ${h}:${mi}:${s}`;
-    }
+        // Xóa lọc qua nút
+        document.getElementById('btnClearFilter').addEventListener('click', () => setFilter('none'));
 
-    btnSendLocation.addEventListener('click', async () => {
-      locStatus.textContent = '';
-      locStatus.className = 'status';
-      if (!isSecureContextForGeo()) {
-        locStatus.textContent = 'Cần mở bằng HTTPS hoặc localhost để lấy vị trí.';
-        locStatus.classList.add('err');
-        return;
-      }
-      if (!('geolocation' in navigator)) {
-        locStatus.textContent = 'Trình duyệt không hỗ trợ Geolocation.';
-        locStatus.classList.add('err');
-        return;
-      }
-      try {
-        const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }));
-        const ts = formatTimestamp(new Date());
-        const payload = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          timestamp: ts
-        };
-        const res = await fetch('/api/send-location', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+        // Bind click cho legend
+        document.querySelectorAll('.legend-item').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation(); // tránh bị map click clear luôn
+                const key = el.dataset.range;
+                setFilter(filterMode === key ? 'none' : key);
+            });
         });
-        if (!res.ok) throw new Error('Gửi vị trí thất bại');
-        const data = await res.json();
-        if (data.ok) {
-          locStatus.textContent = `Đã gửi vị trí: (${payload.lat.toFixed(6)}, ${payload.lng.toFixed(6)})`;
-          locStatus.classList.add('ok');
-        } else {
-          throw new Error(data.error || 'Gửi vị trí thất bại');
+
+        // ====== Hiệu ứng pulse nhỏ khi thêm điểm ======
+        function addPulse(latLng) {
+            const tpl = document.getElementById('pulse-template');
+            const node = tpl.content.firstElementChild.cloneNode(true);
+            const pane = map.getPanes().overlayPane;
+            pane.appendChild(node);
+
+            function updatePos() {
+                const p = map.latLngToLayerPoint(latLng);
+                node.style.transform = `translate(${p.x}px, ${p.y}px)`;
+            }
+            updatePos();
+            const onZoom = () => requestAnimationFrame(updatePos);
+            map.on('zoom viewreset move', onZoom);
+            setTimeout(() => {
+                map.off('zoom viewreset move', onZoom);
+                node.remove();
+            }, 1100);
         }
-      } catch (e) {
-        locStatus.textContent = 'Lỗi: ' + e.message;
-        locStatus.classList.add('err');
-      }
-    });
 
-    // SSE vào map
-    const mapStatus = document.getElementById('mapStatus');
-    try {
-      const sse = new EventSource('/events');
-      sse.onmessage = (ev) => {
-        try {
-          const payload = JSON.parse(ev.data);
-          if (payload && Number.isFinite(payload.lat) && Number.isFinite(payload.lng)) {
-            showPoint(payload.lat, payload.lng, payload.timestamp, payload.prediction);
-            mapStatus.textContent = `Đã cập nhật vị trí: (${payload.lat.toFixed(6)}, ${payload.lng.toFixed(6)})`;
-            mapStatus.className = 'status ok';
-          }
-        } catch (e) {
-          console.error('Bad SSE JSON:', e, ev.data);
+        // ====== Hàm showPoint đã nâng cấp ======
+        function showPoint(lat, lng, timestamp, prediction) {
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+            // prediction có thể là mảng (list các mức). Ở code cũ bạn lấy prediction[0], tôi giữ nguyên để tương thích:
+            const pred = prediction;
+            // Chuẩn hóa thành mảng số nguyên không âm
+            const levels = (Array.isArray(pred) ? pred : [pred])
+                .map(n => Number(n))
+                .filter(n => Number.isInteger(n) && n >= 0);
+            if (!levels.length) return;
+
+            // Sắp xếp giảm dần và loại trùng
+            const uniqueDesc = [...new Set(levels)].sort((a, b) => b - a);
+            const maxLevel = uniqueDesc[0];
+
+            // Tạo text hiển thị theo yêu cầu:
+            // - Nếu 1 mức: “đang ngập ở mức X”
+            // - Nếu nhiều mức: “có thể đang ngập tới mức max” + liệt kê mức khác tăng dần
+            let text;
+            if (uniqueDesc.length === 1) {
+                text = `Thời gian: ${timestamp}<br>Dự đoán khu vực đang ngập ở mức ${maxLevel}`;
+            } else {
+                const others = uniqueDesc.slice(1).sort((a, b) => a - b);
+                const othersText = others.map(l => `mức ${l}`).join(', ');
+                text = `Thời gian: ${timestamp}<br>` +
+                    `Dự đoán khu vực có thể đang ngập tới mức ${maxLevel} ` +
+                    `có vị trí ngập ${othersText}`;
+            }
+
+            // Màu: mức 0 xanh; tồn tại mức >2 → đỏ; nếu tối đa chỉ 2 → vàng
+            const hasRed = uniqueDesc.some(l => l > 2);
+            const baseColor = (maxLevel === 0) ? 'green' : (hasRed ? 'red' : 'orange');
+            const baseFill = (maxLevel === 0) ? '#22c55e' : (hasRed ? '#ef4444' : '#ffcc00');
+            const latLng = [lat, lng];
+
+            // Vẽ vòng tròn
+            const circle = L.circle(latLng, {
+                color: baseColor,
+                fillColor: baseFill,
+                fillOpacity: 0.4,
+                radius: 18,
+                weight: 2
+            }).bindPopup(text);
+            circle.addTo(floodLayerGroup);
+
+            // Lưu để phục vụ lọc
+            floodCircles.push({
+                circle,
+                levelSet: new Set(uniqueDesc),
+                maxLevel,
+                baseColor,
+                baseFill
+            });
+
+            // Áp bộ lọc hiện tại (nếu đang lọc)
+            applyFilter();
+
+            // Popup mở nhẹ khi vừa thêm
+            circle.on('add', () => {
+                addPulse(latLng);
+                // Không auto-open popup để tránh spam; bấm vào từng điểm để xem.
+            });
+
+            // Cập nhật marker chính
+            if (!window.currentMarker) {
+                window.currentMarker = L.marker(latLng).addTo(map);
+            } else {
+                window.currentMarker.setLatLng(latLng);
+            }
+
+            // Cập nhật đường đi
+            if (window.pathLine) {
+                window.pathLine.addLatLng(latLng);
+            }
+
+            // Giữ zoom tối thiểu 17
+            const currentZoom = map.getZoom();
+            map.setView(latLng, Math.max(currentZoom, 17));
         }
-      };
-      sse.onerror = () => {
-        mapStatus.textContent = 'Mất kết nối realtime, đang thử lại...';
-        mapStatus.className = 'status err';
-      };
-    } catch (e) {
-      mapStatus.textContent = 'Không thể mở kênh realtime.';
-      mapStatus.className = 'status err';
-    }
-
-    // Nút “Cập nhật dữ liệu”
-    const btnBroadcastStored = document.getElementById('btnBroadcastStored');
-    const storedInfo = document.getElementById('storedInfo');
-
-    async function refreshStoredCount() {
-      try {
-        const res = await fetch('/api/stored-count');
-        const data = await res.json();
-        if (data.ok) {
-          storedInfo.textContent = `Hiện có ${data.count} bản ghi trong bộ nhớ.`;
-          storedInfo.className = 'status';
-        }
-      } catch {}
-    }
-
-    // gọi lúc load trang
-    refreshStoredCount();
-
-    btnBroadcastStored.addEventListener('click', async () => {
-      btnBroadcastStored.disabled = true;
-      storedInfo.textContent = 'Đang phát dữ liệu đã lưu...';
-      storedInfo.className = 'status';
-      try {
-        const res = await fetch('/api/broadcast-stored', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ delayMs: 300 }) // có thể chỉnh 0 nếu muốn phát thật nhanh
+    </script>
+    <script>
+        // ====== Helpers chung ======
+    // Khóa/mở khóa mọi tương tác trang
+    function setAppBlocking(on, title = '', sub = '') {
+        const overlay = document.getElementById('appOverlay');
+        const t = document.getElementById('overlayTitle');
+        const s = document.getElementById('overlaySub');
+        // Disable/enable tất cả nút và input
+        const controls = document.querySelectorAll('button, input, select, textarea');
+        controls.forEach(el => {
+            el.disabled = !!on;
         });
-        const data = await res.json();
-        if (data.ok) {
-          storedInfo.textContent = `Đã phát ${data.broadcasted} bản ghi lên bản đồ.`;
-          storedInfo.className = 'status ok';
+        if (on) {
+            t.textContent = title || 'Đang xử lý…';
+            s.textContent = sub || 'Vui lòng đợi trong giây lát.';
+            overlay.classList.add('show');
+            overlay.setAttribute('aria-hidden', 'false');
         } else {
-          storedInfo.textContent = 'Không phát được dữ liệu.';
-          storedInfo.className = 'status err';
+            overlay.classList.remove('show');
+            overlay.setAttribute('aria-hidden', 'true');
         }
-      } catch (e) {
-        storedInfo.textContent = 'Lỗi khi phát dữ liệu: ' + e.message;
-        storedInfo.className = 'status err';
-      } finally {
-        btnBroadcastStored.disabled = false; // cập nhật lại số lượng sau khi phát (vẫn giữ trong bộ nhớ)
-        refreshStoredCount();
-      }
-    });
-  </script>
-  <script>
-        // === Theo dõi vị trí liên tục (watchPosition) ===
-        let watchId = null;
-        let isTracking = false;
-        let myLocationMarker = null;
-        let myLocationCircle = null;
-        const btnToggleTracking = document.getElementById('btnToggleTracking');
-        const trackStatus = document.getElementById('trackStatus');
-        const chkAutoSend = document.getElementById('chkAutoSend');
-        let lastSentTime = 0;
-        const SEND_INTERVAL = 5000; // 5 giây
+    }
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const result = reader.result;
+                    const idx = result.indexOf(',');
+                    resolve(idx >= 0 ? result.slice(idx + 1) : result);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
 
         function isSecureContextForGeo() {
             return window.isSecureContext || location.protocol === 'https:' || location.hostname === 'localhost';
@@ -301,23 +650,223 @@
             return `${y}-${m}-${da} ${h}:${mi}:${s}`;
         }
 
+        // ====== Gửi ảnh ======
+        
+        const btnSendImage = document.getElementById('btnSendImage');
+        const imageInput = document.getElementById('imageInput');
+        const imgStatus = document.getElementById('imgStatus');
+        btnSendImage.addEventListener('click', async () => {
+            imgStatus.textContent = '';
+            imgStatus.className = 'status';
+        try {
+            const file = imageInput.files && imageInput.files[0];
+            if (!file) {
+                imgStatus.textContent = 'Vui lòng chọn ảnh trước.';
+                imgStatus.classList.add('err');
+                return;
+            }
+            // Khóa UI + hiển thị overlay đang dự đoán
+            setAppBlocking(true, 'AI đang dự đoán mức ngập…', 'Hệ thống đang phân tích ảnh của bạn.');
+            const base64 = await fileToBase64(file);
+            const res = await fetch('/api/send-image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    image_base64: base64,
+                    sent_at: Date.now()
+                })
+            });
+            if (!res.ok) throw new Error('Gửi ảnh thất bại');
+            const data = await res.json();
+            // Cập nhật thông báo theo yêu cầu
+            if (data.ok) {
+                // Giữ overlay ~800ms cho cảm giác “xong tác vụ”
+                document.getElementById('overlayTitle').textContent = 'Đã dự đoán xong mức ngập tại khu vực';
+                document.getElementById('overlaySub').textContent = 'Nhấn “Gửi vị trí” để ghi nhận.';
+                setTimeout(() => setAppBlocking(false), 800);
+                imgStatus.textContent = 'Đã dự đoán xong mức ngập tại khu vực, nhấn Gửi vị trí để ghi nhận.';
+                imgStatus.classList.add('ok');
+            } else {
+                throw new Error(data.error || 'Gửi ảnh thất bại');
+            }
+        } catch (e) {
+            setAppBlocking(false);
+            imgStatus.textContent = 'Lỗi: ' + e.message;
+            imgStatus.classList.add('err');
+        }
+    });
+
+        // ====== Gửi vị trí một lần ======
+    const btnSendLocation = document.getElementById('btnSendLocation');
+    const locStatus = document.getElementById('locStatus');
+    btnSendLocation.addEventListener('click', async () => {
+        locStatus.textContent = '';
+        locStatus.className = 'status';
+        if (!isSecureContextForGeo()) {
+            locStatus.textContent = 'Cần mở bằng HTTPS hoặc localhost để lấy vị trí.';
+            locStatus.classList.add('err');
+            return;
+        }
+        if (!('geolocation' in navigator)) {
+            locStatus.textContent = 'Trình duyệt không hỗ trợ Geolocation.';
+            locStatus.classList.add('err');
+            return;
+        }
+        try {
+            // Khóa UI + hiển thị overlay "đang ghi nhận"
+            setAppBlocking(true, 'Đang ghi nhận kết quả…', 'Đang gửi vị trí và lưu vào hệ thống.');
+            const pos = await new Promise((resolve, reject) => navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }));
+            const ts = formatTimestamp(new Date());
+            const payload = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                timestamp: ts
+            };
+            const res = await fetch('/api/send-location', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('Gửi vị trí thất bại');
+            const data = await res.json();
+            if (data.ok) {
+                // Đợi 600–800ms rồi đóng overlay để UX mượt
+                document.getElementById('overlayTitle').textContent = 'Đã ghi nhận kết quả';
+                document.getElementById('overlaySub').textContent = 'Cảm ơn bạn đã đóng góp dữ liệu.';
+                setTimeout(() => setAppBlocking(false), 700);
+                locStatus.textContent = `Đã gửi vị trí: (${payload.lat.toFixed(6)}, ${payload.lng.toFixed(6)})`;
+                locStatus.classList.add('ok');
+            } else {
+                throw new Error(data.error || 'Gửi vị trí thất bại');
+            }
+        } catch (e) {
+            setAppBlocking(false);
+            locStatus.textContent = 'Lỗi: ' + e.message;
+            locStatus.classList.add('err');
+        }
+    });
+        // ====== SSE nhận dữ liệu và vẽ lên map ======
+        const mapStatus = document.getElementById('mapStatus');
+        try {
+            const sse = new EventSource('/events');
+            sse.onmessage = (ev) => {
+                try {
+                    const payload = JSON.parse(ev.data);
+                    if (payload && Number.isFinite(payload.lat) && Number.isFinite(payload.lng)) {
+                        showPoint(payload.lat, payload.lng, payload.timestamp, payload.prediction);
+                        mapStatus.textContent = `Đã cập nhật vị trí: (${payload.lat.toFixed(6)}, ${payload.lng.toFixed(6)})`;
+                        mapStatus.className = 'status ok';
+                    }
+                } catch (e) {
+                    console.error('Bad SSE JSON:', e, ev.data);
+                }
+            };
+            sse.onerror = () => {
+                mapStatus.textContent = 'Mất kết nối realtime, đang thử lại...';
+                mapStatus.className = 'status err';
+            };
+        } catch (e) {
+            mapStatus.textContent = 'Không thể mở kênh realtime.';
+            mapStatus.className = 'status err';
+        }
+
+        // ====== Broadcast dữ liệu đã lưu ======
+        const btnBroadcastStored = document.getElementById('btnBroadcastStored');
+        const storedInfo = document.getElementById('storedInfo');
+
+        async function refreshStoredCount() {
+            try {
+                const res = await fetch('/api/stored-count');
+                const data = await res.json();
+                if (data.ok) {
+                    storedInfo.textContent = `Hiện có ${data.count} bản ghi trong bộ nhớ.`;
+                    storedInfo.className = 'status';
+                }
+            } catch {}
+        }
+
+        refreshStoredCount();
+        btnBroadcastStored.addEventListener('click', async () => {
+            btnBroadcastStored.disabled = true;
+            storedInfo.textContent = 'Đang phát dữ liệu đã lưu...';
+            storedInfo.className = 'status';
+            try {
+                const res = await fetch('/api/broadcast-stored', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        delayMs: 300
+                    })
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    storedInfo.textContent = `Đã phát ${data.broadcasted} bản ghi lên bản đồ.`;
+                    storedInfo.className = 'status ok';
+                } else {
+                    storedInfo.textContent = 'Không phát được dữ liệu.';
+                    storedInfo.className = 'status err';
+                }
+            } catch (e) {
+                storedInfo.textContent = 'Lỗi khi phát dữ liệu: ' + e.message;
+                storedInfo.className = 'status err';
+            } finally {
+                btnBroadcastStored.disabled = false;
+                refreshStoredCount();
+            }
+        });
+
+        // ====== Theo dõi vị trí liên tục ======
+        let watchId = null;
+        let isTracking = false;
+        let myLocationMarker = null;
+        let myLocationCircle = null;
+        const btnToggleTracking = document.getElementById('btnToggleTracking');
+        const trackStatus = document.getElementById('trackStatus');
+        const chkAutoSend = document.getElementById('chkAutoSend');
+        let lastSentTime = 0;
+        const SEND_INTERVAL = 5000;
+
         function updateMyLocation(lat, lng, accuracy) {
             const latLng = [lat, lng];
             // marker xanh “vị trí của tôi”
             if (!myLocationMarker) {
-                const myIcon = L.divIcon({ className: 'my-location-icon', html: '<div style="background-color:#007bff;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 5px rgba(0,0,0,0.5);"></div>', iconSize: [16, 16], iconAnchor: [8, 8] });
-                myLocationMarker = L.marker(latLng, { icon: myIcon }).addTo(map);
+                const myIcon = L.divIcon({
+                    className: 'my-location-icon',
+                    html: '<div style="background-color:#3b82f6;width:16px;height:16px;border-radius:50%;border:3px solid white;box-shadow:0 0 8px rgba(59,130,246,.7);"></div>',
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+                myLocationMarker = L.marker(latLng, {
+                    icon: myIcon
+                }).addTo(map);
                 myLocationMarker.bindPopup('Vị trí của bạn');
             } else {
                 myLocationMarker.setLatLng(latLng);
             }
+
             // vòng accuracy
             if (!myLocationCircle) {
-                myLocationCircle = L.circle(latLng, { color: '#007bff', fillColor: '#007bff', fillOpacity: 0.15, radius: accuracy }).addTo(map);
+                myLocationCircle = L.circle(latLng, {
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.12,
+                    radius: accuracy
+                }).addTo(map);
             } else {
                 myLocationCircle.setLatLng(latLng);
                 myLocationCircle.setRadius(accuracy);
             }
+
             // pan hợp lý
             const currentZoom = map.getZoom();
             if (currentZoom < 15) map.setView(latLng, 15);
@@ -326,8 +875,18 @@
 
         async function sendLocationToServer(lat, lng) {
             try {
-                const payload = { lat, lng, timestamp: formatTimestamp() };
-                const res = await fetch('/api/send-location', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const payload = {
+                    lat,
+                    lng,
+                    timestamp: formatTimestamp()
+                };
+                const res = await fetch('/api/send-location', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
                 if (!res.ok) {
                     console.warn('Send location failed');
                 }
@@ -364,11 +923,15 @@
             }, (error) => {
                 trackStatus.textContent = `Lỗi: ${error.message}`;
                 trackStatus.className = 'status err';
-            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+            }, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
             isTracking = true;
             btnToggleTracking.textContent = 'Tắt theo dõi vị trí';
-            btnToggleTracking.style.backgroundColor = '#c00';
-            btnToggleTracking.style.color = '#fff';
+            btnToggleTracking.classList.remove('warn');
+            btnToggleTracking.classList.add('danger');
         }
 
         function stopTracking() {
@@ -378,8 +941,8 @@
             }
             isTracking = false;
             btnToggleTracking.textContent = 'Bật theo dõi vị trí';
-            btnToggleTracking.style.backgroundColor = '';
-            btnToggleTracking.style.color = '';
+            btnToggleTracking.classList.remove('danger');
+            btnToggleTracking.classList.add('warn');
             trackStatus.textContent = 'Đã tắt theo dõi vị trí.';
             trackStatus.className = 'status';
         }
@@ -393,6 +956,12 @@
             if (isTracking) stopTracking();
         });
     </script>
+    <div id="appOverlay" class="app-overlay" aria-hidden="true">
+      <div class="overlay-box">
+        <div class="spinner"></div>
+        <div id="overlayTitle" class="overlay-title">Đang xử lý…</div>
+        <div id="overlaySub" class="overlay-sub">Vui lòng đợi trong giây lát.</div>
+      </div>
+    </div>
 </body>
 </html>
-
