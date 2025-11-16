@@ -1,6 +1,8 @@
 import os
 from ultralytics import YOLO
 
+# code này sẽ dược train trên colab vì có GPU cuda nên sẽ train nhanh hơn, sau khi có file tham số thì lấy về đưa vào dự án
+
 
 def main():
     # Cấu hình căn bản
