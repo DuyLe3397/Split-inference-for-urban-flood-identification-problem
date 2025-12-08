@@ -33,7 +33,7 @@ class SplitDetectionModel(nn.Module):
             self.tail = self.model[split_module2:]
 
     def forward_head(self, x):  # x chính là tensor đầu vào layer đầu
-        output_from = (4, 6, 9, 12, 15, 18)
+        # output_from = (4, 6, 9, 12, 15, 18)
         # những chỉ số module nằm trong output_from: 4, 6, 9, 12, 15, 18 thì mới được lưu lại
         # còn lại thì sẽ là None
 
@@ -81,7 +81,7 @@ class SplitDetectionModel(nn.Module):
     # y là mảng có các chỉ số là các module quan trọng trong mid và head
 
     def forward_mid(self, xdict):
-        output_from = (4, 6, 9, 12, 15, 18)  # những module quan trọng
+        # output_from = (4, 6, 9, 12, 15, 18)  những module quan trọng
 
         # y bây giờ sẽ giống ds y phần head chứa đầu ra các module quan trọng trong head
         y = xdict["modules_output"]

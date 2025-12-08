@@ -4,40 +4,43 @@ from ultralytics import YOLO
 
 
 def main():
-    # Trỏ tới best weights sau train
-    # Với detect:
-    weights = "yolov8n.pt"  # yolov8_version1.pt
-    # Nếu dùng segmentation: "runs/segment/train/weights/best.pt"
+    # === Load model YOLOv8l với weights best.pt ===
+    weights = "yolov8n.pt"   # File đã train bằng yolov8l
     if not os.path.exists(weights):
-        print(f"Không tìm thấy weights: {weights}")
-    model = YOLO(weights)
+        raise FileNotFoundError(f"Không tìm thấy weights: {weights}")
 
-    # Thư mục ảnh test (có thể dùng valid/images hoặc một folder test riêng)
-    source_dir = "dataset/test/images"  # chỉnh theo nhu cầu
+    # nạp mô hình
+    model = YOLO(weights)   # tự nhận đúng loại: yolov8l
+
+    # === Folder chứa ảnh test ===
+    source_dir = "dataset/test/images"
     image_paths = sorted(glob(os.path.join(source_dir, "*.*")))
     if len(image_paths) == 0:
-        print(f"Không thấy ảnh trong: {source_dir}")
+        raise FileNotFoundError(f"Không thấy ảnh trong thư mục: {source_dir}")
 
-    # Inference hàng loạt
+    # === Predict ===
     results = model.predict(
         source=source_dir,
         imgsz=640,
-        conf=0.2,        # ngưỡng confidence
-        iou=0.45,         # IoU NMS
-        device="cpu",         # "cpu" nếu không có GPU
-        save=True,        # lưu ảnh vẽ kết quả
-        save_txt=True,    # lưu nhãn YOLO predicted
+        conf=0.25,
+        iou=0.45,
+        device=0 if model.device.type == "cuda" else "cpu",
+        save=True,
+        save_txt=True,
+        save_conf=True,
         project="runs",
-        name="predict",
+        name="predict_yolov8l",
         exist_ok=True,
         verbose=True
     )
 
-    # In ra tóm tắt một vài kết quả
+    # === In kết quả 5 ảnh đầu ===
     for i, r in enumerate(results[:5]):
-        # r.boxes.data: [x1,y1,x2,y2,score,cls]
         print(
-            f"Image {i}: shape={r.orig_shape}, det={len(r.boxes)}, data={r.boxes.data.cpu().numpy()}")
+            f"[IMAGE {i}] shape={r.orig_shape}, detections={len(r.boxes)}, "
+            f"boxes={r.boxes.data.cpu().numpy()}"
+        )
 
 
-main()
+if __name__ == "__main__":
+    main()

@@ -20,7 +20,7 @@ def main():
         epochs=100,            # chỉnh theo dataset
         imgsz=640,             # kích thước ảnh train
         batch=16,              # chỉnh theo VRAM
-        device="cpu",          # GPU id; dùng "cpu" nếu không có GPU
+        device=0,          # GPU id; dùng "cpu" nếu không có GPU
         workers=4,             # số luồng dataloader
         optimizer="auto",      # để auto chọn; hoặc "SGD"/"AdamW"
         lr0=0.01,              # lr khởi đầu (tuỳ chỉnh)
