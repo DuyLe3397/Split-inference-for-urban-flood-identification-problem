@@ -62,9 +62,8 @@ This configuration is use for server.
 
 ## How to Run
 Alter your configuration, you need to run the server to listen and control the request from clients.
-Thực hiện yolov8env\Scripts\activate để kích hoạt môi trường ảo
 ```commandline
-python3 server.py or python server.py
+python server.py
 ```
 
 Now, when server is ready, run clients simultaneously with total number of client that you defined.
@@ -73,22 +72,23 @@ Now, when server is ready, run clients simultaneously with total number of clien
 **Layer 1**
 
 ```commandline
-python3 client.py --layer_id 1 or python client.py --layer_id 1 
+python client.py --layer_id 1 
 ```
 
 
 **Layer 2**
 
 ```commandline
-python3 client.py --layer_id 2 or python client.py --layer_id 2 
+python client.py --layer_id 2 
 ```
 
 
 **Layer 3**
 
 ```commandline
-python3 client.py --layer_id 3 or python client.py --layer_id 3 
+python client.py --layer_id 3 
 ```
+In the computer, execute the command `cd UrbanFloodMonitoringApplication` and then run the following command to start the web.
 
 **Web**
 
@@ -105,16 +105,4 @@ If you want to use a specific device configuration for the training process, dec
 
 ```commandline
 python client.py --layer_id 1 --device cpu
-```
-
-
-## Result
-Results include inference time, operating time, utilization. It locates in `result.log`.  
-```commandline
-2025-04-16 23:51:35,944 - my_logger - INFO - Start Inference
-2025-04-16 23:51:35,982 - my_logger - INFO - FPS input: 30.0
-2025-04-16 23:54:12,896 - my_logger - INFO - End Inference.
-2025-04-16 23:54:12,899 - my_logger - INFO - All time: 156.95556831359863s
-2025-04-16 23:54:12,900 - my_logger - INFO - Inference time: 152.65051984786987s
-2025-04-16 23:54:12,900 - my_logger - INFO - Utilization: 97.26 % (là tỉ lệ time inference/ all time)
 ```
