@@ -130,7 +130,7 @@ python train_first_model.py
   python client.py --layer_id 3 --device cpu
 ```
 
-- Test thử model đã được tách với file tham số đó cùng ảnh hoặc quay trực tiếp từ web gửi về (cần chạy 1 server, 3 client và 1 server web)
+- Test thử model đã được tách với file tham số đó cùng ảnh hoặc video quay trực tiếp từ web gửi về (cần chạy 1 server, 3 client và 1 server web)
 ```commandline
   python server.py 
   python client.py --layer_id 1 --device cpu
@@ -144,7 +144,7 @@ python train_first_model.py
 python val_first_model.py
 ```
 
-- Cuối cùng đánh giá model đã được tách với dataset có sẵn để so sánh với model ban đầu
+- Cuối cùng đánh giá model đã được tách với dataset có sẵn để so sánh sự sai lệch sau khi tách với model ban đầu
 ```commandline
   python server.py --val True
   python client.py --layer_id 1 --device cpu
