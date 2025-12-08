@@ -155,7 +155,8 @@ class Server:
             with torch.no_grad():
                 nms_out = ops.non_max_suppression(
                     prediction=p0,
-                    conf_thres=0.20,  # nếu conf của box <0.20 thì bỏ qua không xét đến vì chỉ xét conf từ đó lên
+                    # nếu conf của box <0.20 thì bỏ qua không xét đến vì chỉ xét conf từ đó lên
+                    conf_thres=0.182,
                     iou_thres=0.45,  # nếu iou giữa 2 box >0.45 thì coi như trùng box nên bỏ bớt 1 box đi
                     classes=None,
                     agnostic=False,
@@ -166,6 +167,7 @@ class Server:
             det = nms_out[0]  # lấy phần tử đầu tiên trong danh sách nms_out
             # đầu ra là tensor 2D [M, 6], M là số box còn lại sau NMS, 6 là 4 tọa độ box + conf + class
             # scale_boxes chính xác
+
             if det is not None and len(det) and meta is not None:
                 im_shape = meta["im_shape"]      # (1,3,h,w)
                 orig_shape = meta["orig_shape"]  # (H,W,3)
@@ -185,7 +187,7 @@ class Server:
                 print(
                     f"- Id class của box {i+1}: {det[i, 5].item():.6f}")
 
-            # # vẽ hộp bao quanh các đối tượng được phát hiện và lưu thành 1 bản sao
+            # vẽ hộp bao quanh các đối tượng được phát hiện và lưu thành 1 bản sao
             CUR_DIR = os.path.dirname(os.path.abspath(__file__))
             image_path = os.path.join(CUR_DIR, "img1.jpg")
             orig_img = cv2.imread(image_path)
@@ -216,7 +218,7 @@ class Server:
                     cv2.rectangle(draw, (x1, y0), (x1 + tw + 4, y1), color, -1)
                     cv2.putText(draw, label, (x1 + 2, y1 - 4),
                                 cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 1, cv2.LINE_AA)
-            cv2.imwrite('output.jpg', draw)
+            cv2.imwrite('runs/predict_splited_model/output.jpg', draw)
         else:
             print(
                 f"- Prediction không phải Tensor 3D như kỳ vọng. type={type(p0).__name__}")

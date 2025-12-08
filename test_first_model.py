@@ -5,7 +5,7 @@ from ultralytics import YOLO
 
 def main():
     # === Load model YOLOv8l với weights best.pt ===
-    weights = "yolov8n.pt"   # File đã train bằng yolov8l
+    weights = "yolov8_version1.pt"   # File đã train bằng yolov8l
     if not os.path.exists(weights):
         raise FileNotFoundError(f"Không tìm thấy weights: {weights}")
 
@@ -22,14 +22,14 @@ def main():
     results = model.predict(
         source=source_dir,
         imgsz=640,
-        conf=0.25,
+        conf=0.182,
         iou=0.45,
         device=0 if model.device.type == "cuda" else "cpu",
         save=True,
         save_txt=True,
         save_conf=True,
         project="runs",
-        name="predict_yolov8l",
+        name="predict_fisrt_model",
         exist_ok=True,
         verbose=True
     )

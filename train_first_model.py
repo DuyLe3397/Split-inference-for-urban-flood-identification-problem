@@ -6,7 +6,7 @@ from ultralytics import YOLO
 
 def main():
     # Cấu hình căn bản
-    data_yaml = "data.yaml"  # cập nhật đường dẫn nếu để nơi khác
+    data_yaml = "dataset/data.yaml"  # cập nhật đường dẫn nếu để nơi khác
     # Chọn kiến trúc:
     # - Detect: "yolov8n.pt", "yolov8s.pt", ...
     # - Segment: "yolov8n-seg.pt", "yolov8s-seg.pt", ...

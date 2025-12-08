@@ -106,3 +106,18 @@ If you want to use a specific device configuration for the training process, dec
 ```commandline
 python client.py --layer_id 1 --device cpu
 ```
+
+Đầu tiên train model với dataset để được file tham số .pt
+` python train_first_model.py`
+
+Sau đó test thử model ban đầu với file tham số đã lấy ra từ bước train
+` python test_first_model.py`
+
+Test thử model đã được tách với file tham số đã lấy ra từ bước train
+` python server.py`...
+
+Tiếp tục đánh giá model ban đầu với dataset có sẵn
+` python val_first_model.py`
+
+Cuối cùng đánh giá model đã được tách với dataset có sẵn để so sánh với model ban đầu
+` python val_splited_model.py`...
