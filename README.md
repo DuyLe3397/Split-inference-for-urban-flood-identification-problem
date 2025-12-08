@@ -144,7 +144,7 @@ python train_first_model.py
 python val_first_model.py
 ```
 
-- Cuối cùng đánh giá model đã được tách với dataset có sẵn để so sánh sự sai lệch của model sau khi tách với model ban đầu
+- Cuối cùng đánh giá với dataset có sẵn để so sánh sự sai lệch của model sau khi tách với model ban đầu
 ```commandline
   python server.py --val True
   python client.py --layer_id 1 --device cpu
