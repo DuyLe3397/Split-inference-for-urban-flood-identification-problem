@@ -67,6 +67,8 @@ class RpcClient:  # mục đích là sẽ nhận tin nhắn từ rpc_queue
             model = self.response["model"]
             data = self.response["data"]
             debug_mode = self.response["debug_mode"]
+            val = self.response["val"]
+            test = self.response["test"]
             self.logger = src.Log.Logger(f"result.log", debug_mode)
             if model is not None:
                 file_path = f'{model_name}.pt'
@@ -101,7 +103,7 @@ class RpcClient:  # mục đích là sẽ nhận tin nhắn từ rpc_queue
                                            body=pickle.dumps(timer))
 
             time_inference = self.inference_func(
-                self.model, data, num_layers, batch_frame, self.logger)
+                self.model, data, num_layers, batch_frame, self.logger, val, test)
 
             if self.layer_id == num_layers:
                 timer = time.time()

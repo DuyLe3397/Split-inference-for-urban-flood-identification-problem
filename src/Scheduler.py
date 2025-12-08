@@ -223,7 +223,7 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
                     return time_inference
 
     # mục đích là lấy video đầu vào, rồi cho chạy qua head
-    def inference_head(self, model, data, batch_frame, logger):
+    def inference_head(self, model, data, batch_frame, logger, val, test):
 
         time_inference = 0  # thời gian inference
         # đây là lớp đưa đầu ra của model vào để xử lý
@@ -231,9 +231,36 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
         signal_start = 0
         model.eval()
         model.to(self.device)
-        self.channel.queue_declare(queue='image_queue', durable=True)
-        self.channel.basic_qos(prefetch_count=50)
-        return self.inference_frame_next(None, model, logger, time_inference, signal_start)
+
+        if val == True:
+            print("Bắt đầu val ảnh trong dataset")
+            image_files = sorted([
+                f for f in os.listdir('dataset/valid/images')
+                if f.lower().endswith((".jpg", ".jpeg", ".png"))
+            ])
+            print(f"Found {len(image_files)} images")
+            for img_name in image_files:
+                img_path = os.path.join('dataset/valid/images', img_name)
+
+                # Load ảnh
+                img = cv2.imread(img_path)
+                if img is None:
+                    print(f"❌ Không đọc được ảnh: {img_path}")
+                    continue
+                print(f"Đã đọc được tên ảnh: {img_name}")
+        else:
+            if test == True:
+                print("Bắt đầu test ảnh trong dataset")
+                image_files = sorted([
+                    f for f in os.listdir('dataset/test/images')
+                    if f.lower().endswith((".jpg", ".jpeg", ".png"))
+                ])
+                print(f"Found {len(image_files)} images")
+
+            else:
+                self.channel.queue_declare(queue='image_queue', durable=True)
+                self.channel.basic_qos(prefetch_count=50)
+                return self.inference_frame_next(None, model, logger, time_inference, signal_start)
 
         # liên tục nhận dữ liệu từ web xuống
         # path = None
@@ -396,7 +423,7 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
         #     logger.log_error(f"Not support data format: {data_path_extension}")
         #     return False
 
-    def inference_mid(self, model, batch_frame, logger):
+    def inference_mid(self, model, batch_frame, logger, val, test):
         time_inference = 0
 
         model.eval()
@@ -446,7 +473,7 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
         return time_inference
 
     # không có data và save_layers ở đây, vì đến cuối rồi, nó chỉ lấy dữ liệu từ hàng đợi thôi
-    def inference_tail(self, model, batch_frame, logger):
+    def inference_tail(self, model, batch_frame, logger, val, test):
         time_inference = 0
 
         model.eval()
@@ -486,7 +513,6 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
                     # chạy trên phần tail
                     # kết quả chính là tensor đầu ra của model
                     predictions = model.forward_tail(y)
-                    meta = y.get("meta", None)
                     # cái dự đoán này là cho từng frame tức là dự đoán cho từng khung hình trong video và nó có 3 scale khác nhau, chứ không phải cả video
 
                     # chạy hậu xử lý từ kết quả đầu ra của model, tức là xem kết quả đầu ra
@@ -511,16 +537,18 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
         logger.log_info(f"End Inference Tail.")
         return time_inference
 
-    def inference_func(self, model, data, num_layers, batch_frame, logger):
+    def inference_func(self, model, data, num_layers, batch_frame, logger, val, test):
         time_inference = 0
         if self.layer_id == 1:  # tức là client nó nằm đầu model
             time_inference = self.inference_head(
-                model, data, batch_frame, logger)
+                model, data, batch_frame, logger, val, test)
         elif self.layer_id == num_layers:  # tức là client nằm ở cuối model
-            time_inference = self.inference_tail(model, batch_frame, logger)
+            time_inference = self.inference_tail(
+                model, batch_frame, logger, val, test)
         else:
             # nếu không thì nó nằm giữa model
-            time_inference = self.inference_mid(model, batch_frame, logger)
+            time_inference = self.inference_mid(
+                model, batch_frame, logger, val, test)
         return time_inference
 
     def connect(self):

@@ -1,6 +1,11 @@
 from email import message
 from ultralytics.utils import ops
-from ultralytics.engine.results import Results
+# from ultralytics.engine.results import Results
+# from ultralytics.utils.metrics import Metric
+# from ultralytics.utils.metrics import ConfusionMatrix
+# from ultralytics.utils.metrics import ap_per_class
+# from ultralytics.utils.plotting import plot_results, plot_confusion_matrix, plot_pr_curve, plot_mc_curve
+import matplotlib.pyplot as plt
 import os
 import cv2
 import sys
@@ -17,7 +22,9 @@ import base64
 
 
 class Server:
-    def __init__(self, config):
+    def __init__(self, config, val=False, test=False):
+        self.val = val
+        self.test = test
         # RabbitMQ
         # truy cập vào RabbitMQ và bên trong là address
         address = config["rabbit"]["address"]
@@ -175,6 +182,31 @@ class Server:
                     im_shape[2:], det[:, :4], orig_shape).round()
                 det[:, :4].clamp_(min=0)
 
+            # chuyển tọa độ box về dạng YOLO để sử dụng cho quá trình validation trong dataset
+            # chiều cao - chiều rộng ảnh gốc
+            H, W = orig_shape[0], orig_shape[1]
+            yolo_preds = []  # lưu list prediction theo format YOLO
+            for i in range(det.shape[0]):
+                x1, y1, x2, y2, conf, cls = det[i].tolist()
+                # tính cx, cy, w, h (dạng pixel)
+                cx = (x1 + x2) / 2.0
+                cy = (y1 + y2) / 2.0
+                bw = (x2 - x1)
+                bh = (y2 - y1)
+
+                # chuẩn hóa về [0, 1]
+                cx_n = cx / W
+                cy_n = cy / H
+                bw_n = bw / W
+                bh_n = bh / H
+
+                yolo_preds.append([int(cls), cx_n, cy_n, bw_n, bh_n, conf])
+
+            print("\n=== KẾT QUẢ PREDICTION DẠNG YOLO (normalized) ===")
+            for p in yolo_preds:
+                print(
+                    f"class={p[0]}, cx={p[1]:.6f}, cy={p[2]:.6f}, w={p[3]:.6f}, h={p[4]:.6f}, conf={p[5]:.6f}")
+
             print(
                 f"- Tensor sau khi đi qua NMS: ={det.shape}, dtype={det.dtype}, device={det.device}")
             # một lần thêm prediction chính là thêm 1 mảng có nhiều bbox dự đoán
@@ -218,6 +250,7 @@ class Server:
                     cv2.rectangle(draw, (x1, y0), (x1 + tw + 4, y1), color, -1)
                     cv2.putText(draw, label, (x1 + 2, y1 - 4),
                                 cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 1, cv2.LINE_AA)
+
             cv2.imwrite('runs/predict_splited_model/output.jpg', draw)
         else:
             print(
@@ -336,6 +369,9 @@ class Server:
                         "model_name": self.model_name,  # chính là tên model
                         # chính là file video cần nhận diện và mình sẽ đưa nó đến cho client đầu nhận rồi chạy inference
                         "data": self.data,
-                        "debug_mode": self.debug_mode}  # chế độ gỡ lỗi
+                        "debug_mode": self.debug_mode,  # chế độ gỡ lỗi
+                        "val": self.val,
+                        "test": self.test,
+                        }
 
             self.send_to_response(client_id, pickle.dumps(response))
