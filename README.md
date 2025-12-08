@@ -106,6 +106,10 @@ If you want to use a specific device configuration for the training process, dec
 ```commandline
 python client.py --layer_id 1 --device cpu
 ```
+# Dataset
+- Tập dữ liệu 4k ảnh được chia với tỉ lệ 80% dùng train và 20% dùng để validation
+- Nguồn:
+
 # Quy trình chi tiết để chạy dự án:
 
 - Đầu tiên train model với dataset để được file tham số .pt
