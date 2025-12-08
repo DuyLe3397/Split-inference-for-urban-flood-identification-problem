@@ -8,16 +8,16 @@ Web (Client) sẽ bóc tách video đầu vào thành các frame còn nếu là 
 ```
 certifi            2025.11.12
 matplotlib         3.10.7
-numpy              2.2.6  
-opencv-python      4.12.0.88
+numpy              1.26.4
+opencv-python      4.8.1.78
 pip                25.3 
 PyYAML             6.0.3
 requests           2.32.5 
-torch              2.9.1  
-torchvision        0.24.1 
-ultralytics        8.3.228
+torch              2.1.2+cu118  
+torchvision        0.16.2+cu118 
+ultralytics        8.0.196
 ultralytics-thop   2.0.18 
-urllib3            2.5.0 
+urllib3            2.6.0 
 ```
 
 ## Install web-side packages
@@ -62,7 +62,7 @@ This configuration is use for server.
 
 ## How to Run
 Alter your configuration, you need to run the server to listen and control the request from clients.
-
+Thực hiện yolov8env\Scripts\activate để kích hoạt môi trường ảo
 ```commandline
 python3 server.py or python server.py
 ```
