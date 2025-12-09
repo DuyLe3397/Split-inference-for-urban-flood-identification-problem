@@ -1,4 +1,4 @@
-# Test.py - Vẽ bbox từ YOLO predictions và lưu ảnh kết quả
+# src/Test.py - Vẽ bbox từ YOLO predictions và lưu ảnh kết quả
 
 import os
 import cv2
@@ -23,9 +23,6 @@ class Tester:
         Chuyển 1 prediction từ YOLO normalized sang pixel xyxy.
 
         pred: [cls, cx, cy, w, h, conf]
-            - cls : class id (int hoặc float)
-            - cx, cy, w, h: normalized (0..1) theo (W, H)
-            - conf: confidence
         orig_shape: (H, W) của ảnh gốc
         """
         H, W = orig_shape
@@ -53,6 +50,10 @@ class Tester:
         orig_shape: (H, W) kích thước ảnh gốc
         img_name  : tên file ảnh (ví dụ: "0001.jpg")
         """
+        if yolo_preds is None or len(yolo_preds) == 0:
+            print(f"[Tester] No predictions for image {img_name}, skipping.")
+            return
+
         # Đọc ảnh gốc
         img_path = os.path.join(self.img_folder, img_name)
         img = cv2.imread(img_path)
@@ -60,18 +61,18 @@ class Tester:
             print(f"[Tester] Cannot read image: {img_path}")
             return
 
-        # Nếu orig_shape khác với img.shape, có thể resize cho khớp (nếu cần)
-        # Ở đây giả định orig_shape khớp với ảnh trong img_folder.
-        H, W = orig_shape
+        H, W = int(orig_shape[0]), int(orig_shape[1])
+
+        # Nếu kích thước đọc được khác orig_shape thì resize cho khớp
         if img.shape[0] != H or img.shape[1] != W:
             img = cv2.resize(img, (W, H))
 
         # Vẽ từng bbox
         for pred in yolo_preds:
-            cls, conf, box = self.scale_pred_to_pixel(pred, orig_shape)
+            cls, conf, box = self.scale_pred_to_pixel(pred, (H, W))
             x1, y1, x2, y2 = box.astype(int)
 
-            # Clamp to image bounds cho an toàn
+            # Clamp to image bounds
             x1 = max(0, min(W - 1, x1))
             y1 = max(0, min(H - 1, y1))
             x2 = max(0, min(W - 1, x2))

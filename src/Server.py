@@ -203,17 +203,27 @@ class Server:
             det = nms_out[0]  # lấy phần tử đầu tiên trong danh sách nms_out
             # đầu ra là tensor 2D [M, 6], M là số box còn lại sau NMS, 6 là 4 tọa độ box + conf + class
             # scale_boxes chính xác
-
-            if det is not None and len(det) and meta is not None:
-                im_shape = meta["im_shape"]      # (1,3,h,w)
-                orig_shape = meta["orig_shape"]  # (H,W,3)
-                det[:, :4] = ops.scale_boxes(
-                    im_shape[2:], det[:, :4], orig_shape).round()
-                det[:, :4].clamp_(min=0)
-
+            if det is None or len(det) == 0 or meta is None:
+                print("- No detections or meta is None, skipping frame.")
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                return
+            # Từ đây trở đi chắc chắn có meta và det
             # chuyển tọa độ box về dạng YOLO để sử dụng cho quá trình validation trong dataset
             # chiều cao - chiều rộng ảnh gốc
-            H, W = orig_shape[0], orig_shape[1]
+            im_shape = meta["im_shape"]      # (1, 3, h, w)
+            orig_shape = meta["orig_shape"]  # (H, W, 3) hoặc (H, W)
+
+            det[:, :4] = ops.scale_boxes(
+                im_shape[2:], det[:, :4], orig_shape
+            ).round()
+            det[:, :4].clamp_(min=0)
+
+            # Nếu orig_shape là (H, W, 3) thì lấy 2 phần tử đầu
+            if len(orig_shape) == 3:
+                H, W = orig_shape[0], orig_shape[1]
+            else:
+                H, W = orig_shape
+
             yolo_preds = []  # lưu list prediction theo format YOLO
             for i in range(det.shape[0]):
                 x1, y1, x2, y2, conf, cls = det[i].tolist()
@@ -244,9 +254,10 @@ class Server:
                 )
             else:
                 if self.test == True:
+                    H, W = meta["orig_shape"][:2]
                     self.tester(
                         yolo_preds,
-                        meta["orig_shape"][:2],
+                        (H, W),
                         meta["img_name"]
                     )
                 else:
