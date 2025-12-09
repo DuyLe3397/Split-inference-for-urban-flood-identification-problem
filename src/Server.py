@@ -19,12 +19,15 @@ from src.Model import SplitDetectionPredictor
 import src.Log
 import json
 import base64
+from src.Test import Tester
+from src.Val import ValidationManager
 
 
 class Server:
-    def __init__(self, config, val=False, test=False):
+    def __init__(self, config, val=False, test=False, compare=False):
         self.val = val
         self.test = test
+        self.compare = compare
         # RabbitMQ
         # truy cập vào RabbitMQ và bên trong là address
         address = config["rabbit"]["address"]
@@ -44,6 +47,12 @@ class Server:
         self.Processed_predictions = []
         # ds lưu mỗi phần tử là 1 mảng 2 chiều các dự đoán và 1 mảng 2 chiều chứa vị trí kinh, vĩ, thời gian
         self.predictionAndlocation = []
+        self.validator = ValidationManager(iou_thres=0.5)
+        self._debug_saved_raw = False
+        self.tester = Tester(
+            img_folder='dataset/test/images',
+            save_folder='runs/test_splited_model'
+        )
 
         credentials = pika.PlainCredentials(username, password)
         self.connection = pika.BlockingConnection(
@@ -130,35 +139,54 @@ class Server:
         # tail gửi về (predictions, meta)
         preds, meta = (packet if isinstance(packet, tuple)
                        and len(packet) == 2 else (packet, None))
-
-        if not isinstance(preds, (list, tuple)) or len(preds) < 2:
-            print(
-                f"- preds cuối cùng nhận được chính là tín hiệu kết thúc mà tail gửi về, type={type(preds).__name__}, tín hiệu kết thúc là: {preds}")
-            if len(self.predictions) > 0:
-                print(
-                    f"số lượng mảng chứa các dự đoán của từng frame là: {len(self.predictions)}")
-
-                # lấy mảng chứa các dự đoán của frame đầu tiên trong video hoặc của 1 ảnh
-                for i in range(len(self.predictions)):
-                    pred = self.predictions[i]
-                    class_ids = pred[:, 5].long()
-
-                    # lấy các class id chứa dự đoán các mức ngập, sẽ là 1 list chứa các class id
-                    unique_class_ids = torch.unique(class_ids).tolist()
-
+        p0 = preds  # vì bây giờ luôn là tensor
+        if p0 == "STOP":
+            if self.val == True:
+                self.validator.summary()
+            else:
+                if self.test == True:
+                    print("Saved result to runs/test_splited_model")
+                else:
                     print(
-                        f"Danh sách các dự đoán mức ngập của frame {i+1} là: {unique_class_ids}")
+                        f"- preds cuối cùng nhận được chính là tín hiệu kết thúc mà tail gửi về, type={type(preds).__name__}, tín hiệu kết thúc là: {preds}")
+                    if len(self.predictions) > 0:
+                        print(
+                            f"số lượng mảng chứa các dự đoán của từng frame là: {len(self.predictions)}")
 
-                # lấy danh sách các mức ngập của frame cuối cùng trong video
-                self.add_processed_prediction(unique_class_ids)
-            ch.basic_ack(delivery_tag=method.delivery_tag)
-            print("====================================")
+                        # lấy mảng chứa các dự đoán của frame đầu tiên trong video hoặc của 1 ảnh
+                        for i in range(len(self.predictions)):
+                            pred = self.predictions[i]
+                            class_ids = pred[:, 5].long()
+
+                            # lấy các class id chứa dự đoán các mức ngập, sẽ là 1 list chứa các class id
+                            unique_class_ids = torch.unique(class_ids).tolist()
+
+                            print(
+                                f"Danh sách các dự đoán mức ngập của frame {i+1} là: {unique_class_ids}")
+
+                        # lấy danh sách các mức ngập của frame cuối cùng trong video
+                        self.add_processed_prediction(unique_class_ids)
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                print("====================================")
             return
-        # lấy phần tử đầu tiên trong preds đây mới là tensor dự đoán thô
-        p0 = preds[0] if isinstance(preds, (list, tuple)) else preds
+
         if torch.is_tensor(p0) and p0.ndim == 3:
             print(
                 f"- Prediction thô trước khi qua NMS: ={p0.shape}, dtype={p0.dtype}, device={p0.device}")
+            if self.val and not self._debug_saved_raw and self.compare:
+                # Lưu raw output của split model
+                torch.save(p0.cpu(), "raw_split.pt")
+                img_name = meta["img_name"] if meta and "img_name" in meta else "unknown.jpg"
+                with open("raw_split_info.txt", "w", encoding="utf-8") as f:
+                    f.write(img_name)
+                print(
+                    f">>> [DEBUG] Saved raw_split.pt and img_name = {img_name}")
+                self._debug_saved_raw = True
+
+                # Không cần tính metric nữa, ack và RETURN để không xử lý thêm frame
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                return
+
             with torch.no_grad():
                 nms_out = ops.non_max_suppression(
                     prediction=p0,
@@ -166,6 +194,7 @@ class Server:
                     conf_thres=0.182,
                     iou_thres=0.45,  # nếu iou giữa 2 box >0.45 thì coi như trùng box nên bỏ bớt 1 box đi
                     classes=None,
+
                     agnostic=False,
                     multi_label=False,
                     max_det=300,
@@ -201,57 +230,37 @@ class Server:
                 bh_n = bh / H
 
                 yolo_preds.append([int(cls), cx_n, cy_n, bw_n, bh_n, conf])
-
             print("\n=== KẾT QUẢ PREDICTION DẠNG YOLO (normalized) ===")
             for p in yolo_preds:
                 print(
                     f"class={p[0]}, cx={p[1]:.6f}, cy={p[2]:.6f}, w={p[3]:.6f}, h={p[4]:.6f}, conf={p[5]:.6f}")
 
-            print(
-                f"- Tensor sau khi đi qua NMS: ={det.shape}, dtype={det.dtype}, device={det.device}")
-            # một lần thêm prediction chính là thêm 1 mảng có nhiều bbox dự đoán
-            self.add_prediction(det)
-            for i in range(det.shape[0]):
-                print(
-                    f"- Giá trị xyxy của box {i+1}: {det[i, :6].tolist()}")
-                print(
-                    f"- Giá trị conf của box {i+1}: {det[i, 4].item():.6f}")
-                print(
-                    f"- Id class của box {i+1}: {det[i, 5].item():.6f}")
-
-            # vẽ hộp bao quanh các đối tượng được phát hiện và lưu thành 1 bản sao
-            CUR_DIR = os.path.dirname(os.path.abspath(__file__))
-            image_path = os.path.join(CUR_DIR, "img1.jpg")
-            orig_img = cv2.imread(image_path)
-
-            if orig_img is None:
-                print("Không đọc được ảnh: img1.jpg")
-            if orig_img.ndim != 3 or orig_img.shape[2] != 3:
-                print("Ảnh phải là H×W×3 (BGR)")
-            if orig_img.dtype != np.uint8:
-                orig_img = orig_img.astype(np.uint8)
-
-            draw = orig_img.copy()
-            dummy_img = torch.zeros(
-                (1, 3, 640, 640), dtype=p0.dtype, device=p0.device)
-            if det is not None and len(det):
-                det[:, :4] = ops.scale_boxes(
-                    dummy_img.shape[2:], det[:, :4], draw.shape).round()
-                xyxy = det[:, :4].clamp(min=0).cpu().numpy().astype(int)
-                confs = det[:, 4].cpu().numpy()
-                clss = det[:, 5].cpu().numpy().astype(int)
-                for (x1, y1, x2, y2), sc, k in zip(xyxy, confs, clss):
-                    label = f"{k} {sc:.2f}"
-                    color = (0, 0, 255)
-                    cv2.rectangle(draw, (x1, y1), (x2, y2), color, 10)
-                    (tw, th), _ = cv2.getTextSize(
-                        label, cv2.FONT_HERSHEY_SIMPLEX, 3, 1)
-                    y0 = max(0, y1 - th - 6)
-                    cv2.rectangle(draw, (x1, y0), (x1 + tw + 4, y1), color, -1)
-                    cv2.putText(draw, label, (x1 + 2, y1 - 4),
-                                cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 1, cv2.LINE_AA)
-
-            cv2.imwrite('runs/predict_splited_model/output.jpg', draw)
+            if self.val == True:
+                h, w = meta["orig_shape"][:2]
+                self.validator.process_frame(
+                    yolo_preds,
+                    (h, w),
+                    meta["img_name"]
+                )
+            else:
+                if self.test == True:
+                    self.tester(
+                        yolo_preds,
+                        meta["orig_shape"][:2],
+                        meta["img_name"]
+                    )
+                else:
+                    print(
+                        f"- Tensor sau khi đi qua NMS: ={det.shape}, dtype={det.dtype}, device={det.device}")
+                    # một lần thêm prediction chính là thêm 1 mảng có nhiều bbox dự đoán
+                    self.add_prediction(det)
+                    for i in range(det.shape[0]):
+                        print(
+                            f"- Giá trị xyxy của box {i+1}: {det[i, :6].tolist()}")
+                        print(
+                            f"- Giá trị conf của box {i+1}: {det[i, 4].item():.6f}")
+                        print(
+                            f"- Id class của box {i+1}: {det[i, 5].item():.6f}")
         else:
             print(
                 f"- Prediction không phải Tensor 3D như kỳ vọng. type={type(p0).__name__}")

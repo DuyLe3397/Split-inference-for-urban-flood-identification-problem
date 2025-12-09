@@ -118,28 +118,57 @@ class SplitDetectionModel(nn.Module):
 
     # x chính là đầu vào, x=model.forward_mid(x), qua tail cũng chính là tensor luôn
     def forward_tail(self, x):
-
-        # y bây giờ sẽ giống ds y chứa đầu ra các module trong mid
         y = x["modules_output"]
         last_index = x["last_modules_idx"]
-        # x bây giờ chính là đầu ra nằm cuối trong ds y, cũng chính là của module nối liền với phần tail này
         x = y[last_index]
 
         for m in self.tail:
-            if m.f != -1:  # khác -1 là có đầu vào từ 1 hay nhiều module trước
+            if m.f != -1:
                 x = y[m.f] if isinstance(m.f, int) else [
                     x if j == -1 else y[j] for j in m.f]
             x = m(x)
             y.append(x if m.i in self.save else None)
 
-        # kết thúc toàn bộ for thì cuối cùng chỉ có 1 đầu ra duy nhất là x và lưu vào y, đầu ra đó là list gồm 3 phần tử
-        y = x  # y  là list hoặc tuple, lí do là vì module cuối cùng của model nó có 3 đầu ra chính là 3 scale nên đầu ra phải là list
-        # hoặc đã được concat thành 1 tensor
-        if isinstance(y, (list, tuple)):
-            # chuyển thành tensor hoặc list tensor
-            return self.from_numpy(y[0] if len(y) == 1 else [self.from_numpy(x) for x in y])
-        else:
-            return self.from_numpy(y)
+        # x giờ là output của Detect head trong YOLO gốc,
+        # nhưng như log cho thấy: x là tuple (tensor_logits, some_list)
+        if isinstance(x, (list, tuple)):
+            # Trường hợp điển hình bạn vừa log:
+            # x: (tensor_logits [B, C, N], list_of_feature_maps)
+            # Ta ưu tiên lấy tensor đầu tiên
+            first = x[0]
+            if torch.is_tensor(first) and first.ndim == 3:
+                x = first
+            else:
+                # nếu không phải tensor 3D, fallback: thu thập mọi tensor và concat
+                def _collect_tensors(obj):
+                    out = []
+                    if isinstance(obj, torch.Tensor):
+                        out.append(obj)
+                    elif isinstance(obj, (list, tuple)):
+                        for v in obj:
+                            out.extend(_collect_tensors(v))
+                    return out
+
+                tensors = _collect_tensors(x)
+                if len(tensors) == 0:
+                    raise RuntimeError(
+                        "Detect head output is list/tuple but no tensor found.")
+
+                b, c = tensors[0].shape[:2]
+                for t in tensors:
+                    if t.shape[:2] != (b, c):
+                        raise RuntimeError(
+                            f"Incompatible Detect shapes: {[t.shape for t in tensors]}")
+
+                x = torch.cat(tensors, dim=2)
+
+        # Đảm bảo cuối cùng là tensor 3D [B, C, N]
+        if not torch.is_tensor(x) or x.ndim != 3:
+            raise RuntimeError(
+                f"Detect output is not 3D tensor: type={type(x)}, shape={getattr(x, 'shape', None)}"
+            )
+
+        return x
 
     def _predict_once(self, x):  # cách làm này để kiểm tra cả cái model ban đầu, không chia
         y = []  # outputs

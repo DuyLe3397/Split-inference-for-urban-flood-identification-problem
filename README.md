@@ -151,3 +151,12 @@ python val_first_model.py
   python client.py --layer_id 2 --device cpu
   python client.py --layer_id 3 --device cpu
 ```
+- Cách để so sánh kết quả dự đoán thô trước khi qua bộ lọc NMS của model split (model sau khi tách) và model full (model ban đầu trước khi tách), mục đích là **quan sát sự khác biệt tại sao các chỉ số đánh giá P,R,F1,mAP,... của 2 model lại không thể giống nhau 100%**
+```commandline
+  python server.py --val True --compare True
+  python client.py --layer_id 1 --device cpu
+  python client.py --layer_id 2 --device cpu
+  python client.py --layer_id 3 --device cpu
+  python raw_full.py
+  python compare_shape_full_and_split.py
+```

@@ -248,6 +248,43 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
                     print(f"❌ Không đọc được ảnh: {img_path}")
                     continue
                 print(f"Đã đọc được tên ảnh: {img_name}")
+
+                img0 = img
+                img_rgb = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
+                # LetterBox giống Ultralytics
+                img_lb, ratio, (dw, dh) = letterbox_img(
+                    img_rgb, new_shape=640, auto=True, scaleFill=False, scaleup=True, stride=32
+                )
+
+                im = img_lb.transpose((2, 0, 1)).astype(
+                    np.float32) / 255.0  # CHW
+                im = np.ascontiguousarray(im)
+                im = torch.from_numpy(im).unsqueeze(
+                    0).to(self.device)        # (1,3,h,w)
+
+                # Lưu thông tin scale để tail dùng
+                meta = {
+                    "im_shape": im.shape,
+                    "orig_shape": img0.shape,   # BGR gốc
+                    "ratio": ratio,
+                    "pad": (dw, dh),
+                    "img_name": img_name
+                }
+
+                start = time.time()
+                # # chạy trên phần head
+                # # kết quả chính là dạng key-value
+                y = model.forward_head(im)
+                time_inference += (time.time() - start)
+
+                # gửi kèm meta qua queue
+                y["meta"] = meta
+                self.send_next_part(self.intermediate_queue, y, logger)
+
+            y = 'STOP'
+            self.send_next_part(self.intermediate_queue, y, logger)
+            logger.log_info(f"End Inference Head.")
+            return time_inference
         else:
             if test == True:
                 print("Bắt đầu test ảnh trong dataset")
@@ -256,6 +293,52 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
                     if f.lower().endswith((".jpg", ".jpeg", ".png"))
                 ])
                 print(f"Found {len(image_files)} images")
+                for img_name in image_files:
+                    img_path = os.path.join('dataset/test/images', img_name)
+
+                    # Load ảnh
+                    img = cv2.imread(img_path)
+                    if img is None:
+                        print(f"❌ Không đọc được ảnh: {img_path}")
+                        continue
+                    print(f"Đã đọc được tên ảnh: {img_name}")
+
+                    img0 = img
+                    img_rgb = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
+                    # LetterBox giống Ultralytics
+                    img_lb, ratio, (dw, dh) = letterbox_img(
+                        img_rgb, new_shape=640, auto=True, scaleFill=False, scaleup=True, stride=32
+                    )
+
+                    im = img_lb.transpose((2, 0, 1)).astype(
+                        np.float32) / 255.0  # CHW
+                    im = np.ascontiguousarray(im)
+                    im = torch.from_numpy(im).unsqueeze(
+                        0).to(self.device)        # (1,3,h,w)
+
+                    # Lưu thông tin scale để tail dùng
+                    meta = {
+                        "im_shape": im.shape,
+                        "orig_shape": img0.shape,   # BGR gốc
+                        "ratio": ratio,
+                        "pad": (dw, dh),
+                        "img_name": img_name
+                    }
+
+                    start = time.time()
+                    # # chạy trên phần head
+                    # # kết quả chính là dạng key-value
+                    y = model.forward_head(im)
+                    time_inference += (time.time() - start)
+
+                    # gửi kèm meta qua queue
+                    y["meta"] = meta
+                    self.send_next_part(self.intermediate_queue, y, logger)
+
+                y = 'STOP'
+                self.send_next_part(self.intermediate_queue, y, logger)
+                logger.log_info(f"End Inference Head.")
+                return time_inference
 
             else:
                 self.channel.queue_declare(queue='image_queue', durable=True)
@@ -445,7 +528,6 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
                 received_data = pickle.loads(body)
                 if received_data != 'STOP':
                     y = received_data["data"]  # chính là đầu ra dạng key-value
-                    meta = y.get("meta", None)  # giữ lại
                     # key này chính là đầu ra
                     y["modules_output"] = [
                         t.to(self.device) if t is not None else None for t in y["modules_output"]]
@@ -472,7 +554,7 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
         logger.log_info(f"End Inference Mid.")
         return time_inference
 
-    # không có data và save_layers ở đây, vì đến cuối rồi, nó chỉ lấy dữ liệu từ hàng đợi thôi
+    # không có data và save_layers ở đây, vì đến cuối rồi, nó chỉ lấy dữ liệu từ hàng đợi
     def inference_tail(self, model, batch_frame, logger, val, test):
         time_inference = 0
 

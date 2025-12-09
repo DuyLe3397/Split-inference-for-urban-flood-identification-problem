@@ -1,6 +1,7 @@
 import os
 from glob import glob
 from ultralytics import YOLO
+import cv2
 
 
 def main():
@@ -13,32 +14,34 @@ def main():
     model = YOLO(weights)   # tự nhận đúng loại: yolov8l
 
     # === Folder chứa ảnh test ===
-    source_dir = "dataset/test/images"
-    image_paths = sorted(glob(os.path.join(source_dir, "*.*")))
-    if len(image_paths) == 0:
-        raise FileNotFoundError(f"Không thấy ảnh trong thư mục: {source_dir}")
-
-    # === Predict ===
-    results = model.predict(
-        source=source_dir,
-        imgsz=640,
-        conf=0.182,
-        iou=0.45,
-        device=0 if model.device.type == "cuda" else "cpu",
-        save=True,
-        save_txt=True,
-        save_conf=True,
-        project="runs",
-        name="predict_fisrt_model",
-        exist_ok=True,
-        verbose=True
-    )
-
-    # === In kết quả 5 ảnh đầu ===
-    for i, r in enumerate(results[:5]):
-        print(
-            f"[IMAGE {i}] shape={r.orig_shape}, detections={len(r.boxes)}, "
-            f"boxes={r.boxes.data.cpu().numpy()}"
+    print("Bắt đầu test ảnh trong dataset")
+    image_files = sorted([
+        f for f in os.listdir('dataset/test/images')
+        if f.lower().endswith((".jpg", ".jpeg", ".png"))
+    ])
+    print(f"Found {len(image_files)} images")
+    for img_name in image_files:
+        img_path = os.path.join('dataset/test/images', img_name)
+        # Load ảnh
+        img = cv2.imread(img_path)
+        if img is None:
+            print(f"❌ Không đọc được ảnh: {img_path}")
+            continue
+        print(f"Đã đọc được tên ảnh: {img_name}")
+        # === Predict ===
+        model.predict(
+            source=img_path,
+            imgsz=640,
+            conf=0.182,
+            iou=0.45,
+            device=0 if model.device.type == "cuda" else "cpu",
+            save=True,
+            save_txt=True,
+            save_conf=True,
+            project="runs",
+            name="test_fisrt_model",
+            exist_ok=True,
+            verbose=True
         )
 
 
