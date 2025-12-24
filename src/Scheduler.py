@@ -2,6 +2,7 @@ import base64
 import os
 import pickle
 import time
+from venv import logger
 from tqdm import tqdm
 import torch
 import cv2
@@ -66,10 +67,17 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
         # chính là khai báo 1 hàng đợi dành riêng cho từng layer_id
         self.channel.queue_declare(self.intermediate_queue, durable=False)
         # durable = false có nghĩa là sẽ không lưu lại tin nhắn trong hàng đợi, mà tin nhắn gửi đến bên kia sẽ dùng ngay
+        self.total_bytes_sent1_2 = 0
+        self.total_send_time1_2 = 0
+        self.num_messages1_2 = 0
 
+        self.total_bytes_sent2_3 = 0
+        self.total_send_time2_3 = 0
+        self.num_messages2_3 = 0
     # mục đích là gửi dữ liệu đến layer tiếp theo
 
     def send_next_part(self, intermediate_queue, data, logger):
+        start_send = time.time()
         if data != 'STOP':  # tức là chưa dừng lại thì
             data["modules_output"] = [t.cpu() if isinstance(
                 t, torch.Tensor) else None for t in data["modules_output"]]
@@ -82,18 +90,40 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
                 "data": data
             })
 
+            message_size = len(message)  # bytes
+
             self.channel.basic_publish(  # mục đích chính là xuất vào hàng đợi ở trên, layer khác sẽ vào hang đợi này để lấy dữ liệu
                 exchange='',
                 routing_key=intermediate_queue,  # đây là tên hàng đợi ứng với từng layer_id
                 body=message,
             )
+            send_time = time.time() - start_send
+            if intermediate_queue == "intermediate_queue_1":
+                self.total_bytes_sent1_2 += message_size
+                self.total_send_time1_2 += send_time
+                self.num_messages1_2 += 1
+            if intermediate_queue == "intermediate_queue_2":
+                self.total_bytes_sent2_3 += message_size
+                self.total_send_time2_3 += send_time
+                self.num_messages2_3 += 1
+
         else:  # còn nếu nhận được tin nhắn dừng lại thì
             message = pickle.dumps(data)  # vẫn đóng gói dữ liệu lần cuối
+            message_size = len(message)  # bytes
             self.channel.basic_publish(  # sau đó lại xuất vào hàng đợi đó tiếp, tương ứng với layer_id
                 exchange='',
                 routing_key=intermediate_queue,
                 body=message,
             )
+            send_time = time.time() - start_send
+            if intermediate_queue == "intermediate_queue_1":
+                self.total_bytes_sent1_2 += message_size
+                self.total_send_time1_2 += send_time
+                self.num_messages1_2 += 1
+            if intermediate_queue == "intermediate_queue_2":
+                self.total_bytes_sent2_3 += message_size
+                self.total_send_time2_3 += send_time
+                self.num_messages2_3 += 1
 
     def inference_frame_next(self, previous_body, model, logger, time_inference, signal_start):
         while True:
@@ -281,9 +311,27 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
                 y["meta"] = meta
                 self.send_next_part(self.intermediate_queue, y, logger)
 
+                logger.log_info(
+                    f"Total frames: {self.num_messages1_2} | "
+                    f"Total bytes sent: {self.total_bytes_sent1_2/1024/1024:.2f} MB | "
+                )
+
             y = 'STOP'
             self.send_next_part(self.intermediate_queue, y, logger)
             logger.log_info(f"End Inference Head.")
+
+            throughput_MBps = (self.total_bytes_sent1_2 /
+                               1024 / 1024) / self.total_send_time1_2
+            fps = self.num_messages1_2 / self.total_send_time1_2
+
+            logger.log_info(
+                f"[THROUGHPUT Client 1 → 2]"
+                f"{throughput_MBps:.2f} MB/s | {fps:.2f} FPS | "
+                f"Total frames: {self.num_messages1_2} | "
+                f"Total bytes sent: {self.total_bytes_sent1_2/1024/1024:.2f} MB | "
+                f"Total send time: {self.total_send_time1_2:.2f} s"
+            )
+
             return time_inference
         else:
             if test == True:
@@ -541,6 +589,11 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
 
                     self.send_next_part(self.intermediate_queue, y, logger)
 
+                    logger.log_info(
+                        f"Total frames: {self.num_messages2_3} | "
+                        f"Total bytes sent: {self.total_bytes_sent2_3/1024/1024:.2f} MB | "
+                    )
+
                     pbar.update(batch_frame)  # cập nhật rồi hiển thị thanh %
                 else:
                     break
@@ -552,6 +605,19 @@ class Scheduler:  # mục đích là tính thời gian inference trên từng ph
 
         pbar.close()
         logger.log_info(f"End Inference Mid.")
+
+        throughput_MBps = (self.total_bytes_sent2_3 /
+                           1024 / 1024) / self.total_send_time2_3
+        fps = self.num_messages2_3 / self.total_send_time2_3
+
+        logger.log_info(
+            f"[THROUGHPUT Client 2 → 3]"
+            f"{throughput_MBps:.2f} MB/s | {fps:.2f} FPS | "
+            f"Total frames: {self.num_messages2_3} | "
+            f"Total bytes sent: {self.total_bytes_sent2_3/1024/1024:.2f} MB | "
+            f"Total send time: {self.total_send_time2_3:.2f} s"
+        )
+
         return time_inference
 
     # không có data và save_layers ở đây, vì đến cuối rồi, nó chỉ lấy dữ liệu từ hàng đợi

@@ -2,15 +2,17 @@ import pickle
 import time
 import base64
 import os
-
+import psutil
 import pika
 import torch
 import torch.nn as nn
-
 import src.Log
 from src.Model import SplitDetectionModel
 # tức là phải cài thư viện, file yolo.pt dùng từ thư viện
 from ultralytics import YOLO
+
+# ====== Hàm đo RAM ======
+process = psutil.Process(os.getpid())
 
 
 class RpcClient:  # mục đích là sẽ nhận tin nhắn từ rpc_queue
@@ -31,6 +33,9 @@ class RpcClient:  # mục đích là sẽ nhận tin nhắn từ rpc_queue
         self.data = None
         self.logger = None
         self.connect()
+
+    def ram_mb(self):
+        return process.memory_info().rss / 1024 / 1024
 
     def wait_response(self):
         status = True
@@ -83,12 +88,15 @@ class RpcClient:  # mục đích là sẽ nhận tin nhắn từ rpc_queue
             else:
                 src.Log.print_with_color(f"Do not load model.", "yellow")
 
+            start = time.time()
+            ram1 = self.ram_mb()
             pretrain_model = YOLO(f"{model_name}.pt").model
+
             self.model = SplitDetectionModel(
                 pretrain_model, split_module1=split_module1, split_module2=split_module2)
             # đây chính là lúc thực hiện tách
 
-            start = time.time()
+            ram2 = self.ram_mb()
             self.logger.log_info(f"Start Inference")
             # gửi thời gian về server
 
@@ -118,11 +126,14 @@ class RpcClient:  # mục đích là sẽ nhận tin nhắn từ rpc_queue
             # cái hàm inference_func này nằm trong class scheduler mà class đó có layer_id rồi nên hàm này sẽ biết tính time inference
             # trên phần nào của model đầu giữa hay cuối
             all_time = time.time() - start
+            ram3 = self.ram_mb()
             self.logger.log_info(f"All time: {all_time}s")
             self.logger.log_info(f"Inference time: {time_inference}s")
             self.logger.log_info(
                 f"Utilization: {((time_inference / all_time) * 100):.2f} %")
-
+            self.logger.log_info(f"RAM before load model: {ram1:.2f} MB")
+            self.logger.log_info(f"RAM after load model: {ram2:.2f} MB")
+            self.logger.log_info(f"RAM after inference: {ram3:.2f} MB")
             # Stop or Error
             return False
         else:

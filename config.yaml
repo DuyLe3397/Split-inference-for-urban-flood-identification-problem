@@ -1,6 +1,6 @@
 name: YOLO
 server:
-  cut-module: b #or b, c, đây chỉ là cái cố định
+  cut-module: d #or b, c, đây chỉ là cái cố định
   clients: # định nghĩa 3 clident với id đều là 1
     - 1
     - 1 
@@ -14,7 +14,7 @@ rabbit:
   virtual-host: /
 
 data: src/img1.jpg
-nc: 4
+nc: 4 # xe máy, người, ô tô con, xe buýt
 log-path: .
 control-count: 10
 debug-mode: False

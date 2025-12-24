@@ -351,9 +351,11 @@ class Server:
     def notify_clients(self):  # gửi các thông tin quan trọng đến cho các client
 
         default_splits = {  # đây chỉ là 1 cái mặc định thôi, có thể thay đổi tùy theo ý muốn
-            "a": (1, 9),
-            "b": (9, 16),
-            "c": (16, 22)
+            "a": (10, 17),
+            "b": (4, 13),
+            "c": (4, 21),
+            "d": (1, 2),
+            "e": (2, 21)
         }
 
         # ở đây cut_layer đang là a, tức lấy hàng đầu, lấy thông tin các điểm cắt
