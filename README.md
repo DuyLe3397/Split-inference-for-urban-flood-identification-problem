@@ -1,7 +1,7 @@
 # Tóm tắt hệ thống
 Web (Client) sẽ bóc tách video đầu vào thành các frame, sau đó gửi từng frame về cho Server của Web, Server của Web sẽ gửi tọa độ vị trí cho Server của AI và frame cho Client 1, Client 1 sẽ chạy inference rồi truyền cho Client 2, Client 2 chạy xong truyền cho Client 3, Client 3 sẽ gửi dự đoán về theo từng mảng cho Server của model AI xử lý (mỗi frame sẽ tương ứng với 1 mảng chứa các dự đoán), Server của AI sau đó xử lý dữ liệu dự đoán cùng dữ liệu tại vị trí đó, rồi gửi lên Server của Web, Server của Web sẽ sử dụng các hàm để vẽ bản đồ, sau đó Web (Client) sẽ hiển thị bản đồ cùng vị trí đã đánh dấu mức ngập lên cho người dùng quan sát.
 
-## Model
+## Mô hình tổng quan hệ thống
 ![sl_model](pics/SystemArchitecture.jpg)
 
 ## Install the AI ​​model side packages
