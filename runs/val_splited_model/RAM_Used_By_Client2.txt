@@ -1,0 +1,2 @@
+RAM sử dụng để load tham số vào phần giữa của model là: 19,52 MB
+RAM sử dụng để Val phần giữa của model là: 100,09 MB

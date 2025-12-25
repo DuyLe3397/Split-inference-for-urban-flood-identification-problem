@@ -1,0 +1,2 @@
+RAM sử dụng để load tham số vào model là: 20,4 MB
+RAM sử dụng để Val model là: 495,47 MB

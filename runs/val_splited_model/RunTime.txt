@@ -1,0 +1,4 @@
+Thời gian chạy val với splited_model điểm cắt loại a là: 18,37s
+Thời gian chạy val với splited_model điểm cắt loại b là: 30,81s
+Thời gian chạy val với splited_model điểm cắt loại c là: 22,09s
+Thời gian chạy val với splited_model điểm cắt loại d là: 21,86s

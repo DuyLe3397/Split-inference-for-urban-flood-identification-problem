@@ -1,0 +1,1 @@
+Thời gian chạy val với model ban đầu chưa được tách là: 21,5s

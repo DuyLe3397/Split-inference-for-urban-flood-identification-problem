@@ -1,0 +1,2 @@
+RAM sử dụng để load tham số vào phần cuối của model là: 19,01 MB
+RAM sử dụng để Val phần cuối của model là: 94,75 MB

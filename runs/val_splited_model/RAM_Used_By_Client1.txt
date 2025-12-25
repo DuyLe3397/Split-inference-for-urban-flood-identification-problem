@@ -1,0 +1,2 @@
+RAM sử dụng để load tham số vào phần đầu của model là: 19,43 MB
+RAM sử dụng để Val phần đầu của model là: 157,94 MB
